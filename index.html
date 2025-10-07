@@ -43,10 +43,10 @@
       appearance:none; border:1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06);
       color:var(--fg); padding:12px 16px; border-radius:14px; font-weight:600; cursor:pointer;
       backdrop-filter: blur(6px);
-      transition: transform .08s ease, background .2s ease, border-color .2s ease;
+      transition: transform .18s cubic-bezier(.22,.61,.36,1), background .25s ease, border-color .25s ease;
     }
-    button:hover{transform: translateY(-1px); background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.35)}
-    button:active{transform: translateY(0)}
+    button:hover{transform: translateY(-1px) scale(1.01); background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.35)}
+    button:active{transform: translateY(0) scale(.995)}
     .cta{border-color: var(--yellow); background: rgba(255,204,0,.08)}
     .cta .pulse{display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--yellow); margin-left:8px; box-shadow:0 0 0 0 rgba(255,204,0,.6); animation:pulse 1.6s infinite}
     @keyframes pulse{to{box-shadow:0 0 0 16px rgba(255,204,0,0)}}
@@ -70,12 +70,35 @@
     .tear{position:absolute; width:10px; height:14px; background:linear-gradient(#9cd3ff,#4aa3ff); border-radius:50% 50% 60% 60%; filter: blur(.2px); opacity:.9; animation: fall 2.8s linear infinite; transform: translate(var(--pushX,0px), var(--pushY,0px)); will-change: transform}
     @keyframes fall { to { transform: translateY(110vh) rotate(12deg); opacity:.95 } }
 
-    /* Easter-egg hotspots */
-    .hotspot{position:absolute; width:28px; height:28px; border-radius:50%;
-      background: rgba(255,255,255,.02); outline:1px dashed rgba(255,255,255,.06); cursor:help}
-    .hotspot:hover + .note{opacity:1; transform: translate(-50%, -12px) scale(1)}
-    .note{position:absolute; left:0; transform: translate(-50%, 0) scale(.98); top:-10px; background: rgba(0,0,0,.72);
-      border:1px solid rgba(255,255,255,.18); padding:10px 12px; white-space:nowrap; border-radius:12px; color:#f9f9f9; font-size:13px; opacity:0; transition: all .18s ease; pointer-events:none}
+    /* Hotspots (dynamic) */
+    .egg-spot{
+      position:fixed; width:28px; height:28px; border-radius:50%;
+      background: rgba(255,255,255,.06);
+      outline:1px dashed rgba(255,255,255,.12);
+      cursor:help;
+      transform: translate(-50%, -50%) scale(.96);
+      transition: transform .28s cubic-bezier(.22,.61,.36,1), outline-color .25s ease, background .25s ease, box-shadow .25s ease;
+      box-shadow: 0 6px 20px rgba(0,0,0,.35);
+      z-index:4;
+    }
+    .egg-spot:hover{
+      transform: translate(-50%, -50%) scale(1.06);
+      outline-color: rgba(255,255,255,.25);
+      background: rgba(255,255,255,.12);
+      box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    }
+    .egg-note{
+      position:fixed; transform: translate(-50%, -12px) scale(.98);
+      padding:10px 12px; border-radius:12px; white-space:nowrap;
+      background: rgba(0,0,0,.72); color:#f9f9f9; font-size:13px;
+      border:1px solid rgba(255,255,255,.18);
+      opacity:0; pointer-events:none;
+      transition: opacity .25s ease, transform .28s cubic-bezier(.22,.61,.36,1);
+      z-index:4;
+    }
+    .egg-spot:hover ~ .egg-note[data-for]:not([hidden]){
+      opacity:1; transform: translate(-50%, -16px) scale(1);
+    }
 
     /* Modal */
     .modal{position:fixed; inset:0; display:none; place-items:center; z-index:50}
@@ -90,7 +113,6 @@
   </style>
 </head>
 <body>
-  <!-- Background image of the friend (replace URL) -->
   <div class="bg" id="bg" style="background-image:url('assets/friend.jpg');"></div>
   <div class="overlay"></div>
 
@@ -119,20 +141,6 @@
 
   <!-- Audio -->
   <audio id="screech" preload="auto" src="assets/screech.mp3"></audio>
-
-  <!-- Hidden Easter eggs -->
-  <div style="position:fixed; left:18%; top:62%; z-index:4;">
-    <div class="hotspot" title="psst" role="button" tabindex="0" data-src="eggs/egg.php?slug=cricket"></div>
-    <div class="note">“The ball hit the stump but didn’t fall—that’s rigged!” 🏏 (click)</div>
-  </div>
-  <div style="position:fixed; right:14%; top:28%; z-index:4;">
-    <div class="hotspot" title="psst" role="button" tabindex="0" data-src="eggs/egg.php?slug=usb"></div>
-    <div class="note">The cursed USB that bricked 3 PCs 😭 (click)</div>
-  </div>
-  <div style="position:fixed; left:8%; top:18%; z-index:4;">
-    <div class="hotspot" title="psst" role="button" tabindex="0" data-src="eggs/egg.php?slug=chicken"></div>
-    <div class="note">“I thought it was boneless.” 🍗 (click)</div>
-  </div>
 
   <footer>© 2025 sucky.life — Dedicated to our boy who’s just trying his best 😂</footer>
 
@@ -165,97 +173,58 @@
     }
     setInterval(spawnTear, 220);
 
-    // Audio controls with mobile-safe gesture start
+    // Audio controls
     const audio = document.getElementById('screech');
     const btnPlay = document.getElementById('btnPlay');
     const btnMute = document.getElementById('btnMute');
     const statusText = document.getElementById('statusText');
-
-    function haptics(){
-      try{ if(navigator.vibrate) navigator.vibrate([20,40,20]); }catch(_){}
-    }
-
+    function haptics(){ try{ if(navigator.vibrate) navigator.vibrate([20,40,20]); }catch(_){} }
     async function startAudio(){
-      haptics();
-      if(!audio) return;
-      try {
-        audio.currentTime = Math.random()*1.2;
-        audio.loop = true;
-        await audio.play();
+      haptics(); if(!audio) return;
+      try { audio.currentTime = Math.random()*1.2; audio.loop = true; await audio.play();
         statusText.textContent = 'Visceral screech engaged. (You asked for this.)';
-        btnMute.hidden = false;
-        btnMute.textContent = '🔇 Mute';
-        btnPlay.disabled = true;
-        btnPlay.innerHTML = 'Screeching…';
-      } catch (err) {
-        statusText.textContent = 'Tap once more to allow audio (your browser blocked autoplay).';
-      }
+        btnMute.hidden = false; btnMute.textContent = '🔇 Mute'; btnPlay.disabled = true; btnPlay.innerHTML = 'Screeching…';
+      } catch (err) { statusText.textContent = 'Tap once more to allow audio (your browser blocked autoplay).'; }
     }
-
     btnPlay.addEventListener('click', startAudio);
-    btnMute.addEventListener('click', ()=>{
-      if(!audio) return;
-      audio.muted = !audio.muted;
+    btnMute.addEventListener('click', ()=>{ if(!audio) return; audio.muted = !audio.muted;
       btnMute.textContent = audio.muted ? '🔊 Unmute' : '🔇 Mute';
       statusText.textContent = audio.muted ? 'Muted. (Coward.)' : 'Visceral screech engaged.';
     });
 
-    // Optional: deep link auto-open (?egg=slug)
+    // Deep link auto-open (?egg=slug)
     (function(){
       const params = new URLSearchParams(location.search);
       const eg = params.get('egg');
-      if(eg){
-        setTimeout(()=>openEgg('eggs/egg.php?slug='+encodeURIComponent(eg)), 300);
-      }
+      if(eg){ setTimeout(()=>openEgg('eggs/egg.php?slug='+encodeURIComponent(eg)), 300); }
     })();
 
-    // --- Egg modal logic ---
+    // Modal logic
     const eggModal = document.getElementById('eggModal');
     const eggFrame = document.getElementById('eggFrame');
     const modalBackdrop = document.getElementById('modalBackdrop');
     const closeModal = document.getElementById('closeModal');
-
     function openEgg(src){
       if(!src) return;
-      eggFrame.src = src;
-      eggModal.classList.add('show');
-      eggModal.setAttribute('aria-hidden','false');
-      document.body.style.overflow='hidden';
-      haptics();
+      eggFrame.src = src; eggModal.classList.add('show'); eggModal.setAttribute('aria-hidden','false');
+      document.body.style.overflow='hidden'; haptics();
     }
     function hideEgg(){
-      eggModal.classList.remove('show');
-      eggModal.setAttribute('aria-hidden','true');
-      eggFrame.src = 'about:blank';
-      document.body.style.overflow='';
+      eggModal.classList.remove('show'); eggModal.setAttribute('aria-hidden','true');
+      eggFrame.src = 'about:blank'; document.body.style.overflow='';
     }
-
-    document.addEventListener('click', (e)=>{
-      const target = e.target.closest('.hotspot');
-      if(target){
-        const src = target.getAttribute('data-src');
-        openEgg(src);
-      }
-    });
-    document.addEventListener('keydown', (e)=>{
-      if(e.key==='Escape' && eggModal.classList.contains('show')) hideEgg();
-    });
     modalBackdrop.addEventListener('click', hideEgg);
     closeModal.addEventListener('click', hideEgg);
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && eggModal.classList.contains('show')) hideEgg(); });
 
-    // --- Tear/cursor interaction (repel from cursor) ---
-    const repelRadius = 120; // px
-    const maxPush = 50; // px
-    let decayTimer;
+    // Tear/cursor interaction (repel)
+    const repelRadius = 120, maxPush = 50; let decayTimer;
     function repelTears(e){
       const tearsEls = document.getElementsByClassName('tear');
       for(const el of tearsEls){
         const rect = el.getBoundingClientRect();
-        const cx = rect.left + rect.width/2;
-        const cy = rect.top + rect.height/2;
-        const dx = cx - e.clientX; // vector from cursor to tear
-        const dy = cy - e.clientY;
-        const dist = Math.hypot(dx, dy);
+        const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+        const dx = cx - e.clientX, dy = cy - e.clientY, dist = Math.hypot(dx, dy);
         if(dist < repelRadius){
           const strength = (1 - dist/repelRadius);
           const pushX = Math.max(Math.min((dx/dist) * maxPush * strength*1.4, maxPush), -maxPush);
@@ -265,17 +234,36 @@
         }
       }
       clearTimeout(decayTimer);
-      decayTimer = setTimeout(()=>{
-        for(const el of document.getElementsByClassName('tear')){
-          el.style.setProperty('--pushX', '0px');
-          el.style.setProperty('--pushY', '0px');
-        }
-      }, 140);
+      decayTimer = setTimeout(()=>{ for(const el of document.getElementsByClassName('tear')){
+        el.style.setProperty('--pushX', '0px'); el.style.setProperty('--pushY', '0px'); } }, 140);
     }
     window.addEventListener('mousemove', repelTears);
-    window.addEventListener('touchmove', (ev)=>{
-      if(ev.touches && ev.touches[0]) repelTears({clientX: ev.touches[0].clientX, clientY: ev.touches[0].clientY});
-    });
+    window.addEventListener('touchmove', (ev)=>{ if(ev.touches && ev.touches[0]) repelTears({clientX: ev.touches[0].clientX, clientY: ev.touches[0].clientY}); });
+
+    // --- Dynamic hotspots from server ---
+    fetch('eggs/list.php', {cache:'no-store'}).then(r=>r.json()).then(items=>{
+      items.filter(i => typeof i.pos_left === 'number' && typeof i.pos_top === 'number')
+           .forEach(i => addHotspot(i));
+    }).catch(()=>{ /* fail silently */ });
+
+    function addHotspot(item){
+      const spot = document.createElement('div');
+      spot.className = 'egg-spot';
+      spot.style.left = item.pos_left + 'vw';
+      spot.style.top = item.pos_top + 'vh';
+      spot.title = item.slug;
+      spot.dataset.slug = item.slug;
+      spot.addEventListener('click', ()=> openEgg('eggs/egg.php?slug=' + encodeURIComponent(item.slug)));
+      document.body.appendChild(spot);
+
+      const note = document.createElement('div');
+      note.className = 'egg-note';
+      note.dataset.for = item.slug;
+      note.style.left = item.pos_left + 'vw';
+      note.style.top = (item.pos_top - 2) + 'vh';
+      note.textContent = item.title || item.caption || item.slug;
+      document.body.appendChild(note);
+    }
   </script>
 </body>
 </html>
