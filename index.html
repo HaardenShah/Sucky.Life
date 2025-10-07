@@ -12,6 +12,7 @@
       --fg:#f8f8f8;
       --dim:#b6b6b6;
       --accent:#ff4d4d;
+      --bezier: cubic-bezier(.22,.61,.36,1);
     }
     html,body{height:100%}
     *{box-sizing:border-box}
@@ -43,7 +44,7 @@
       appearance:none; border:1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06);
       color:var(--fg); padding:12px 16px; border-radius:14px; font-weight:600; cursor:pointer;
       backdrop-filter: blur(6px);
-      transition: transform .18s cubic-bezier(.22,.61,.36,1), background .25s ease, border-color .25s ease;
+      transition: transform .18s var(--bezier), background .25s ease, border-color .25s ease;
     }
     button:hover{transform: translateY(-1px) scale(1.01); background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.35)}
     button:active{transform: translateY(0) scale(.995)}
@@ -65,19 +66,26 @@
     .lip svg{width:44px; height:44px; filter: drop-shadow(0 4px 18px rgba(0,0,0,.45));}
     .hint{margin-top:14px; font-size:14px; color:#cfcfcf; opacity:.8}
 
-    /* Animated tears */
+    /* Tears (now tied to audio state) */
     .tears{position:fixed; inset:0; pointer-events:none; z-index:3}
-    .tear{position:absolute; width:10px; height:14px; background:linear-gradient(#9cd3ff,#4aa3ff); border-radius:50% 50% 60% 60%; filter: blur(.2px); opacity:.9; animation: fall 2.8s linear infinite; transform: translate(var(--pushX,0px), var(--pushY,0px)); will-change: transform}
+    .tear{
+      position:absolute; width:10px; height:14px;
+      background:linear-gradient(#9cd3ff,#4aa3ff); border-radius:50% 50% 60% 60%;
+      filter: blur(.2px); opacity:.9;
+      animation: fall 2.8s linear infinite;
+      transform: translate(var(--pushX,0px), var(--pushY,0px));
+      will-change: transform;
+    }
     @keyframes fall { to { transform: translateY(110vh) rotate(12deg); opacity:.95 } }
 
-    /* Hotspots (dynamic) */
+    /* Dynamic hotspots */
     .egg-spot{
       position:fixed; width:28px; height:28px; border-radius:50%;
       background: rgba(255,255,255,.06);
       outline:1px dashed rgba(255,255,255,.12);
       cursor:help;
       transform: translate(-50%, -50%) scale(.96);
-      transition: transform .28s cubic-bezier(.22,.61,.36,1), outline-color .25s ease, background .25s ease, box-shadow .25s ease;
+      transition: transform .28s var(--bezier), outline-color .25s ease, background .25s ease, box-shadow .25s ease;
       box-shadow: 0 6px 20px rgba(0,0,0,.35);
       z-index:4;
     }
@@ -93,21 +101,47 @@
       background: rgba(0,0,0,.72); color:#f9f9f9; font-size:13px;
       border:1px solid rgba(255,255,255,.18);
       opacity:0; pointer-events:none;
-      transition: opacity .25s ease, transform .28s cubic-bezier(.22,.61,.36,1);
+      transition: opacity .25s ease, transform .28s var(--bezier);
       z-index:4;
     }
     .egg-spot:hover ~ .egg-note[data-for]:not([hidden]){
       opacity:1; transform: translate(-50%, -16px) scale(1);
     }
 
-    /* Modal */
-    .modal{position:fixed; inset:0; display:none; place-items:center; z-index:50}
-    .modal.show{display:grid}
-    .backdrop{position:absolute; inset:0; background:rgba(0,0,0,.7); backdrop-filter: blur(2px)}
-    .dialog{position:relative; width:min(92vw, 880px); height:min(80vh, 560px); border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.2); box-shadow:0 30px 80px rgba(0,0,0,.6)}
-    .dialog header{position:absolute; top:8px; right:8px; z-index:2}
-    .dialog button{background:rgba(255,255,255,.14)}
-    .dialog iframe{width:100%; height:100%; display:block; background:#0b0b0b}
+    /* Modal (animated open/close) */
+    .modal{
+      position:fixed; inset:0; display:grid; place-items:center; z-index:50;
+      pointer-events:none; opacity:0; visibility:hidden;
+      transition: opacity .28s var(--bezier), visibility 0s linear .28s;
+    }
+    .modal .backdrop{
+      position:absolute; inset:0; background:rgba(0,0,0,.55); backdrop-filter: blur(2px);
+      opacity:0; transition: opacity .28s var(--bezier);
+    }
+    .modal .dialog{
+      position:relative; width:min(92vw, 880px); height:min(80vh, 560px);
+      border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.2);
+      box-shadow:0 30px 80px rgba(0,0,0,.6);
+      transform: translateY(12px) scale(.98); opacity:0;
+      transition: transform .34s var(--bezier), opacity .3s ease;
+      background:#0b0b0b;
+    }
+    .modal .dialog header{position:absolute; top:8px; right:8px; z-index:2}
+    .modal .dialog button{background:rgba(255,255,255,.14)}
+    .modal .dialog iframe{width:100%; height:100%; display:block; background:#0b0b0b}
+
+    .modal.show{
+      pointer-events:auto; opacity:1; visibility:visible;
+      transition: opacity .28s var(--bezier), visibility 0s;
+    }
+    .modal.show .backdrop{opacity:1}
+    .modal.show .dialog{transform: translateY(0) scale(1); opacity:1}
+
+    .modal.closing{
+      pointer-events:none;
+    }
+    .modal.closing .backdrop{opacity:0}
+    .modal.closing .dialog{transform: translateY(10px) scale(.985); opacity:0}
 
     footer{position:fixed; bottom:10px; left:0; right:0; text-align:center; font-size:12px; color:#c4c4c4; opacity:.8; z-index:2}
   </style>
@@ -128,7 +162,7 @@
 
   <main>
     <div>
-      <h1>*curls lip* “My life suckssss”</h1>
+      <h1>*curls lip* “Life’s just sooo hard, bro…”</h1>
       <div class="lip" aria-live="polite" aria-atomic="true">
         <svg viewBox="0 0 128 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M8 40 Q64 8 120 40 Q64 56 8 40Z" fill="#ff7aa2" stroke="#000" stroke-opacity=".25"/>
@@ -158,66 +192,137 @@
   </div>
 
   <script>
-    // Light tear-rain for drama
+    // =========================
+    // Tear system (spawn only when audio is actively playing & unmuted)
+    // =========================
     const tears = document.getElementById('tears');
+    let tearTimer = null;
     function spawnTear(){
       if(!tears) return;
       const t=document.createElement('div'); t.className='tear';
-      const x=Math.random()*100; const d=1.8+Math.random()*2.2; // duration range
-      t.style.left=x+'vw';
-      t.style.top='-20px';
-      t.style.animationDuration=d+'s';
+      const x=Math.random()*100; const d=1.8+Math.random()*2.2;
+      t.style.left=x+'vw'; t.style.top='-20px'; t.style.animationDuration=d+'s';
       t.style.opacity=0.7+Math.random()*0.3;
       tears.appendChild(t);
       setTimeout(()=>t.remove(), d*1000);
     }
-    setInterval(spawnTear, 220);
+    function startTears(){
+      if(tearTimer) return;
+      // burst-start with a few at once for drama
+      for(let i=0;i<4;i++) spawnTear();
+      tearTimer = setInterval(spawnTear, 220);
+    }
+    function stopTears(){
+      if(tearTimer){ clearInterval(tearTimer); tearTimer=null; }
+      // optional: fade existing out by clearing quickly
+      // [...document.querySelectorAll('.tear')].forEach(el=>el.remove());
+    }
 
+    // =========================
     // Audio controls
+    // =========================
     const audio = document.getElementById('screech');
     const btnPlay = document.getElementById('btnPlay');
     const btnMute = document.getElementById('btnMute');
     const statusText = document.getElementById('statusText');
+
     function haptics(){ try{ if(navigator.vibrate) navigator.vibrate([20,40,20]); }catch(_){} }
-    async function startAudio(){
-      haptics(); if(!audio) return;
-      try { audio.currentTime = Math.random()*1.2; audio.loop = true; await audio.play();
-        statusText.textContent = 'Visceral screech engaged. (You asked for this.)';
-        btnMute.hidden = false; btnMute.textContent = '🔇 Mute'; btnPlay.disabled = true; btnPlay.innerHTML = 'Screeching…';
-      } catch (err) { statusText.textContent = 'Tap once more to allow audio (your browser blocked autoplay).'; }
+
+    function updateTearsFromAudio(){
+      // Consider "playing" only when not muted and not paused
+      if(!audio.paused && !audio.muted) startTears(); else stopTears();
     }
+
+    async function startAudio(){
+      haptics();
+      if(!audio) return;
+      try {
+        audio.currentTime = Math.random()*1.2;
+        audio.loop = true;
+        audio.muted = false; // ensure we actually hear it
+        await audio.play();
+        statusText.textContent = 'Visceral screech engaged. (You asked for this.)';
+        btnMute.hidden = false;
+        btnMute.textContent = '🔇 Mute';
+        btnPlay.disabled = true;
+        btnPlay.innerHTML = 'Screeching…';
+        updateTearsFromAudio();
+      } catch (err) {
+        statusText.textContent = 'Tap once more to allow audio (your browser blocked autoplay).';
+      }
+    }
+
     btnPlay.addEventListener('click', startAudio);
-    btnMute.addEventListener('click', ()=>{ if(!audio) return; audio.muted = !audio.muted;
+    btnMute.addEventListener('click', ()=>{
+      if(!audio) return;
+      audio.muted = !audio.muted;
       btnMute.textContent = audio.muted ? '🔊 Unmute' : '🔇 Mute';
       statusText.textContent = audio.muted ? 'Muted. (Coward.)' : 'Visceral screech engaged.';
+      updateTearsFromAudio();
     });
 
+    // If the browser allowed us to autoplay muted in the background, do NOT start tears until unmuted.
+    (async()=>{ try{ audio.muted=true; audio.loop=true; await audio.play(); }catch(_){ /* ignore */ } })();
+
+    // also react if user agent pauses / other changes
+    ['play','pause','volumechange','ended'].forEach(ev=> audio.addEventListener(ev, updateTearsFromAudio));
+
+    // =========================
     // Deep link auto-open (?egg=slug)
+    // =========================
     (function(){
       const params = new URLSearchParams(location.search);
       const eg = params.get('egg');
       if(eg){ setTimeout(()=>openEgg('eggs/egg.php?slug='+encodeURIComponent(eg)), 300); }
     })();
 
-    // Modal logic
+    // =========================
+    // Modal (animated open/close)
+    // =========================
     const eggModal = document.getElementById('eggModal');
     const eggFrame = document.getElementById('eggFrame');
     const modalBackdrop = document.getElementById('modalBackdrop');
     const closeModal = document.getElementById('closeModal');
+
+    let modalOpen = false;
     function openEgg(src){
-      if(!src) return;
-      eggFrame.src = src; eggModal.classList.add('show'); eggModal.setAttribute('aria-hidden','false');
-      document.body.style.overflow='hidden'; haptics();
+      if(!src || modalOpen) return;
+      modalOpen = true;
+      eggFrame.src = src;
+      eggModal.classList.remove('closing'); // reset any closing state
+      eggModal.classList.add('show');
+      eggModal.setAttribute('aria-hidden','false');
+      document.body.style.overflow='hidden';
+      haptics();
     }
+
     function hideEgg(){
-      eggModal.classList.remove('show'); eggModal.setAttribute('aria-hidden','true');
-      eggFrame.src = 'about:blank'; document.body.style.overflow='';
+      if(!modalOpen) return;
+      modalOpen = false;
+      // play close animation
+      eggModal.classList.add('closing');
+      eggModal.classList.remove('show');
+      eggModal.setAttribute('aria-hidden','true');
+      // after transition, clear src and unlock scroll
+      const done = ()=> {
+        eggModal.removeEventListener('transitionend', done);
+        eggFrame.src = 'about:blank';
+        document.body.style.overflow='';
+        eggModal.classList.remove('closing');
+      };
+      // attach once
+      eggModal.addEventListener('transitionend', done);
+      // safety timeout in case a transitionend is missed
+      setTimeout(done, 380);
     }
+
     modalBackdrop.addEventListener('click', hideEgg);
     closeModal.addEventListener('click', hideEgg);
     document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && eggModal.classList.contains('show')) hideEgg(); });
 
+    // =========================
     // Tear/cursor interaction (repel)
+    // =========================
     const repelRadius = 120, maxPush = 50; let decayTimer;
     function repelTears(e){
       const tearsEls = document.getElementsByClassName('tear');
@@ -240,7 +345,9 @@
     window.addEventListener('mousemove', repelTears);
     window.addEventListener('touchmove', (ev)=>{ if(ev.touches && ev.touches[0]) repelTears({clientX: ev.touches[0].clientX, clientY: ev.touches[0].clientY}); });
 
-    // --- Dynamic hotspots from server ---
+    // =========================
+    // Dynamic hotspots from server
+    // =========================
     fetch('eggs/list.php', {cache:'no-store'}).then(r=>r.json()).then(items=>{
       items.filter(i => typeof i.pos_left === 'number' && typeof i.pos_top === 'number')
            .forEach(i => addHotspot(i));
