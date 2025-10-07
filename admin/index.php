@@ -85,6 +85,9 @@ $current = $slug ? load_egg($slug) : null;
         <div style="margin-top:8px"><button type="submit">Create</button></div>
         <p class="muted">Use letters, numbers, dashes, underscores.</p>
       </form>
+      <hr>
+      <a href="visual.php" class="pill">🎯 Open Visual Editor</a>
+      <p class="muted" style="margin-top:8px">Click anywhere on the page preview to place an egg.</p>
     </aside>
 
     <section class="card">
@@ -115,6 +118,19 @@ $current = $slug ? load_egg($slug) : null;
           <div>
             <label>Story (you can paste text, links, or basic HTML)</label>
             <textarea name="body" rows="6" placeholder="Tell the story…"><?=(htmlspecialchars($current['body'] ?? ''))?></textarea>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>Position</label>
+              <input value="<?=
+                 (isset($current['pos_left']) && isset($current['pos_top']))
+                 ? ('Left: '.$current['pos_left'].'vw, Top: '.$current['pos_top'].'vh')
+                 : 'Not placed yet' ?>" disabled>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:8px;">
+              <a class="pill" href="visual.php">Set in Visual Editor →</a>
+            </div>
           </div>
 
           <div class="drop" id="drop">
