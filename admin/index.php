@@ -7,7 +7,8 @@ if($NEEDS_SETUP){ header('Location: /admin/setup.php'); exit; }
 
 if(isset($_POST['password'])){
   if(password_verify($_POST['password'], $ADMIN_PASSWORD_HASH)){
-    $_SESSION['authed'] = true; header('Location: index.php'); exit;
+    $_SESSION['authed'] = true; 
+    header('Location: index.php'); exit;
   } else { $error='Invalid password'; }
 }
 if(isset($_GET['logout'])){ session_destroy(); header('Location: index.php'); exit; }
@@ -41,11 +42,15 @@ $current = $slug ? load_egg($slug) : null;
   .preview{margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
   .preview img{max-height:90px; border-radius:8px; border:1px solid var(--line)}
   .pill{display:inline-block; padding:2px 8px; border:1px solid var(--line); border-radius:999px; font-size:12px; color:var(--muted)}
+  .help{font-size:12px; color:var(--muted); margin-top:6px}
+  .sectionTitle{margin:14px 0 6px; font-weight:700; color:#e9e9e9}
 </style></head>
 <body>
 <header>
   <strong>Egg Manager — <?= htmlspecialchars($SITE_NAME) ?></strong>
-  <span style="float:right;"><?php if($authed): ?><a href="setpwd.php">Change password</a> &nbsp;|&nbsp; <a href="?logout=1">Logout</a><?php endif; ?></span>
+  <span style="float:right;">
+    <?php if($authed): ?><a href="setpwd.php">Change password</a> &nbsp;|&nbsp; <a href="?logout=1">Logout</a><?php endif; ?>
+  </span>
 </header>
 
 <?php if(!$authed): ?>
@@ -57,14 +62,174 @@ $current = $slug ? load_egg($slug) : null;
         <input type="password" name="password" required>
         <div style="margin-top:10px"><button type="submit">Enter</button></div>
       </form>
-      <p class="muted" style="margin-top:8px"><a href="/admin/setup.php">Run setup again</a> (will overwrite settings)</p>
+      <p class="muted" style="margin-top:8px"><a href="/admin/setup.php">Run setup again</a> (overwrites settings)</p>
     </div>
   </main>
 <?php else: ?>
-  <!-- (rest of your existing Admin UI here unchanged) -->
-  <?php /* Keep your current admin UI block here without changes.
-          If you want me to paste the entire file again with audio, visual editor, etc., say the word. */ ?>
+  <main>
+    <aside class="card">
+      <h3>All Eggs</h3>
+      <ul>
+        <?php if(!$eggs): ?>
+          <li class="muted">No eggs yet — create one below.</li>
+        <?php else: foreach($eggs as $s): ?>
+          <li>
+            <a href="?slug=<?=$s?>" class="pill"><?=$s?></a>
+            <span class="actions">
+              <button onclick="renameEgg('<?=$s?>')">Rename</button>
+              <button onclick="deleteEgg('<?=$s?>')" style="border-color:#5d2a2a;background:#261416">Delete</button>
+            </span>
+          </li>
+        <?php endforeach; endif; ?>
+      </ul>
+      <hr>
+      <form method="get">
+        <label>Create new egg</label>
+        <input name="slug" placeholder="e.g., usb" required>
+        <div style="margin-top:8px"><button type="submit">Create</button></div>
+        <p class="muted">Use letters, numbers, dashes, underscores.</p>
+      </form>
+      <hr>
+      <a href="visual.php<?= $slug ? ('?slug='.urlencode($slug)) : '' ?>" class="pill">🎯 Open Visual Editor</a>
+      <p class="muted" style="margin-top:8px">Click in the preview to place an egg.</p>
+    </aside>
+
+    <section class="card">
+      <h3><?= $slug ? 'Edit: '.htmlspecialchars($slug) : 'Select or create an egg' ?></h3>
+      <?php if($slug): ?>
+        <form id="eggForm" method="post" action="save.php" enctype="multipart/form-data">
+          <input type="hidden" name="slug" value="<?=htmlspecialchars($slug)?>">
+
+          <div class="row">
+            <div>
+              <label>Title</label>
+              <input name="title" value="<?=htmlspecialchars($current['title'] ?? '')?>" placeholder="Short title">
+            </div>
+            <div>
+              <label>Image ALT (for accessibility)</label>
+              <input name="alt" value="<?=htmlspecialchars($current['alt'] ?? '')?>" placeholder="Describe the image">
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>Caption</label>
+              <input name="caption" value="<?=htmlspecialchars($current['caption'] ?? '')?>" placeholder="One-liner under the image">
+            </div>
+            <div>
+              <label>Current Image</label>
+              <input value="<?=htmlspecialchars($current['image'] ?? '')?>" disabled>
+            </div>
+          </div>
+
+          <div>
+            <label>Story (you can paste text, links, or basic HTML)</label>
+            <textarea name="body" rows="6" placeholder="Tell the story…"><?=(htmlspecialchars($current['body'] ?? ''))?></textarea>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>Position</label>
+              <input value="<?=
+                 (isset($current['pos_left']) && isset($current['pos_top']))
+                 ? ('Left: '.$current['pos_left'].'vw, Top: '.$current['pos_top'].'vh')
+                 : 'Not placed yet' ?>" disabled>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:8px;">
+              <a class="pill" href="visual.php?slug=<?=urlencode($slug)?>">Set in Visual Editor →</a>
+            </div>
+          </div>
+
+          <div class="sectionTitle">Image</div>
+          <div class="drop" id="dropImg">
+            <p><strong>Drag & drop</strong> an image here, <strong>paste</strong> one, or <strong>click</strong> to choose a file.</p>
+            <input type="file" id="fileImg" name="image" accept="image/*" style="display:none">
+            <div class="preview" id="previewImg"><?php if(!empty($current['image'])): ?><img src="<?=htmlspecialchars($current['image'])?>" alt="current image"/><?php endif; ?></div>
+            <p class="help">Auto-converts to WebP when supported by PHP GD.</p>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>OR Image URL</label>
+              <input name="image_url" placeholder="https://…">
+            </div>
+            <div></div>
+          </div>
+
+          <div class="sectionTitle">Audio (optional)</div>
+          <div class="drop" id="dropAudio">
+            <p><strong>Drag & drop</strong> an audio file here, or <strong>click</strong> to choose one.</p>
+            <input type="file" id="fileAudio" name="audio" accept=".mp3,.m4a,.aac,.wav,.ogg,.oga,.webm" style="display:none">
+            <div class="preview" id="previewAudio"><?php if(!empty($current['audio'])): ?><span class="pill">Current: <?=htmlspecialchars(basename($current['audio']))?></span><?php endif; ?></div>
+            <p class="help">Supported: mp3, m4a/aac, wav, ogg/oga, webm. No transcoding.</p>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>OR Audio URL</label>
+              <input name="audio_url" placeholder="https://…/sound.mp3">
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:8px;">
+              <button type="submit">Save</button>
+              <a class="muted" target="_blank" href="../eggs/egg.php?slug=<?=urlencode($slug)?>">Preview →</a>
+            </div>
+          </div>
+        </form>
+      <?php endif; ?>
+    </section>
+  </main>
 <?php endif; ?>
 
 <footer><small>© <?=date('Y')?> <?= htmlspecialchars($SITE_DOMAIN ?: $SITE_NAME) ?></small></footer>
+
+<script>
+  function deleteEgg(slug){
+    if(!confirm(`Delete "${slug}"? This removes the egg (image files stay).`)) return;
+    fetch('delete.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'slug='+encodeURIComponent(slug)})
+      .then(r=>r.text()).then(()=>location.href='index.php');
+  }
+  function renameEgg(slug){
+    const ns = prompt('New slug:', slug); if(!ns || ns===slug) return;
+    fetch('rename.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'slug='+encodeURIComponent(slug)+'&new_slug='+encodeURIComponent(ns)})
+      .then(r=>r.text()).then(()=>location.href='index.php?slug='+encodeURIComponent(ns));
+  }
+
+  // Image drop/paste
+  const dropImg = document.getElementById('dropImg');
+  const fileImg = document.getElementById('fileImg');
+  const previewImg = document.getElementById('previewImg');
+  if(dropImg && fileImg){
+    dropImg.addEventListener('click', ()=> fileImg.click());
+    dropImg.addEventListener('dragover', e=>{ e.preventDefault(); dropImg.classList.add('drag'); });
+    dropImg.addEventListener('dragleave', ()=> dropImg.classList.remove('drag'));
+    dropImg.addEventListener('drop', e=>{ e.preventDefault(); dropImg.classList.remove('drag'); if(e.dataTransfer.files[0]) handleImg(e.dataTransfer.files[0]); });
+    document.addEventListener('paste', e=>{ const it = e.clipboardData && e.clipboardData.items; if(!it) return; for(const i of it){ if(i.kind==='file' && i.type.startsWith('image/')){ handleImg(i.getAsFile()); break; } } });
+    fileImg.addEventListener('change', ()=>{ if(fileImg.files[0]) handleImg(fileImg.files[0]); });
+  }
+  function handleImg(f){
+    const url = URL.createObjectURL(f);
+    previewImg.innerHTML = '';
+    const img = new Image(); img.onload = ()=> URL.revokeObjectURL(url); img.src=url; img.alt='preview';
+    previewImg.appendChild(img);
+    const dt = new DataTransfer(); dt.items.add(f); fileImg.files = dt.files;
+  }
+
+  // Audio drop
+  const dropAudio = document.getElementById('dropAudio');
+  const fileAudio = document.getElementById('fileAudio');
+  const previewAudio = document.getElementById('previewAudio');
+  if(dropAudio && fileAudio){
+    dropAudio.addEventListener('click', ()=> fileAudio.click());
+    dropAudio.addEventListener('dragover', e=>{ e.preventDefault(); dropAudio.classList.add('drag'); });
+    dropAudio.addEventListener('dragleave', ()=> dropAudio.classList.remove('drag'));
+    dropAudio.addEventListener('drop', e=>{ e.preventDefault(); dropAudio.classList.remove('drag'); if(e.dataTransfer.files[0]) handleAudio(e.dataTransfer.files[0]); });
+    fileAudio.addEventListener('change', ()=>{ if(fileAudio.files[0]) handleAudio(fileAudio.files[0]); });
+  }
+  function handleAudio(f){
+    previewAudio.innerHTML = '';
+    const tag = document.createElement('span'); tag.className='pill'; tag.textContent = 'Selected: ' + (f.name || 'audio');
+    previewAudio.appendChild(tag);
+    const dt = new DataTransfer(); dt.items.add(f); fileAudio.files = dt.files;
+  }
+</script>
 </body></html>
