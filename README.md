@@ -1,130 +1,215 @@
-# sucky.life — Plug & Play
+# sucky.life — Inside-Joke Engine
 
-Inside-joke site with a lightweight flat-file CMS (“Egg Manager”), visual hotspot placement, and dramatic tear physics.
+A plug-and-play meme site for your crew: animated homepage, silky modal “eggs”, per-egg images/audio/video, and a full-screen visual editor that places hotspots with pixel-perfect accuracy (via vw/vh). No code edits required after install.
 
-## What’s included
+## Feature Snapshot
 
-* **Homepage (`index.html`)**
+* **First-run Setup Wizard**
+  Friendly, animated screen to set **Site Name**, **Domain**, and **Admin Password**.
+* **Homepage drama**
 
-  * Hero image + **visceral screech** audio.
-  * **Play/Stop toggle** (not just mute).
-  * **Tear rain** that only runs while audio is actually playing & unmuted; cursor repels tears.
-  * **Animated modal** (iframe) for eggs with smooth open/close transitions.
-  * **Dynamic hotspots** loaded from the server (no hardcoding in HTML).
+  * Big **Play/Stop** button for the screech (not just mute)
+  * **Tears** fall only while audio is playing; mouse **repels** droplets
+  * Smooth, Apple-y **modal** with iframe for each inside joke (“egg”)
+  * **Deep link**: `/?egg=slug` opens straight into that egg
+* **Eggs (inside jokes)**
 
-* **Eggs**
+  * Content lives in flat **JSON** files (no DB)
+  * Each egg supports **image**, **audio**, and **video** (MP4/WebM recommended)
+  * Captions + rich story body (basic HTML allowed)
+* **Admin (no-code)**
 
-  * `/eggs/egg.php` – displays an egg from JSON.
-  * `/eggs/data/*.json` – each egg’s content + position (`pos_left` vw, `pos_top` vh).
-  * `/eggs/list.php` – JSON endpoint the homepage uses to render hotspots.
+  * Create / edit / delete / rename eggs
+  * **Drag-drop** image uploads (auto-WebP when supported)
+  * Optional **audio** and **video** upload or **URL**
+  * **Media Picker** with previews (images/audio/video) from `/assets/uploads`
+  * **Full-screen Visual Editor** overlays your homepage, clicks save positions in **vw/vh**—accurate on every device
+  * “Center” and grid overlay; animated UI; keyboard accessible
+* **Security & UX niceties**
 
-* **Admin (no-code content editing)**
+  * Password stored hashed; first-run requires setting one
+  * Admin session-gated endpoints
+  * Autoplay safe: main audio only plays after interaction
 
-  * `/admin/index.php` – create/edit/delete/rename eggs, drag-and-drop or paste-to-upload images (auto-WebP).
-  * **Visual Editor** `/admin/visual.php` – loads your homepage in an iframe; pick an egg, click to place it; saves `pos_left`/`pos_top` into JSON.
-  * First-run **password flow** (default `sucky-life` → forced change at login).
-  * `/admin/password.json` – stores the hash (updated via the UI).
-  * `/admin/save_position.php` – API to store egg positions.
+---
 
-## Quick Start
+## Quick Start (zero config)
 
-1. **Upload everything** to your PHP-enabled host.
-2. Ensure these folders are **writable** by PHP:
+1. **Upload all files** to a PHP-enabled host.
+2. Ensure these directories are **writable** by PHP:
 
    * `assets/uploads/`
    * `eggs/data/`
-3. **First login**
+3. Visit your domain → the **Setup Wizard** appears.
+   Set **Site Name**, **Domain**, and **Admin Password** → **Finish**.
+4. You’ll land in **Admin**. Create your first egg, then open the **Visual Editor** to place it on the page.
 
-   * Visit `/admin`
-   * Password: `sucky-life`
-   * You’ll be prompted to set a new password (stored in `/admin/password.json`).
-4. **Add content**
+> Already had an older version? We now serve the homepage from `index.php`. You can keep an old `index.html` around, but it’s unused.
 
-   * In Admin → “Create new egg” → fill Title/Caption/Body → upload/paste image → **Save**.
-   * Open **Visual Editor** → choose your egg → click on the preview to place → **Save Position**.
-5. **Replace placeholders**
+---
 
-   * `assets/friend.jpg` – your hero image.
-   * `assets/screech.mp3` – your audio.
+## Typical Flow
 
-## Everyday Use
+* **Add egg** → fill title/caption/story → upload image (or pick from uploads via Media Picker).
+* **Optional media** → add per-egg **audio** and/or **video**. Preview right in the editor.
+* **Place it** → Visual Editor → click where it belongs → **Save position**.
+* **Test** → on homepage, click the hotspot → modal opens the egg page with your image/video/audio.
 
-* **Open an egg**: click its hotspot on the homepage; animated modal opens an iframe with the egg page.
-* **Reposition**: Admin → Visual Editor → pick egg → click page → Save Position.
-* **Edit content**: Admin → pick egg → change fields → **Save**.
-* **Rename or delete**: Admin sidebar buttons (rename updates JSON filename; delete removes JSON but keeps any uploaded images).
-* **Direct link to an egg**: `https://yourdomain/?egg=slug` (auto-opens the modal to that egg).
+---
 
 ## File Map
 
 ```
-/index.html                         # Homepage (audio, tears, dynamic hotspots, animated modal, play/stop)
-/assets/friend.jpg                  # Replace with your image
-/assets/screech.mp3                 # Replace with your audio
-/assets/uploads/                    # Uploaded images (auto-WebP preferred)
-
-/eggs/egg.php                       # Public egg renderer
-/eggs/list.php                      # NEW: JSON feed with egg positions/titles
-/eggs/data/*.json                   # Flat JSON for each egg (content + pos_left/pos_top)
-
-/admin/index.php                    # CMS UI (+ link to Visual Editor)
-/admin/visual.php                   # NEW: Visual placement editor
-/admin/save_position.php            # NEW: Saves pos_left/pos_top
-/admin/save.php                     # Saves egg content + handles image uploads (auto-WebP)
-/admin/rename.php                   # Rename egg slug
-/admin/delete.php                   # Delete egg JSON
-/admin/util.php                     # Helpers (slugify, list/save eggs, WebP conversion)
-/admin/config.php                   # Paths + first-run init
-/admin/password.json                # Password store (auto-managed by UI; do not hand-edit)
+/index.php                         # Homepage (dynamic hotspots, play/stop audio, tears, modal, deep-link support)
+├─ assets/
+│  ├─ friend.jpg                  # Replace with your hero image
+│  ├─ screech.mp3                 # Replace with your screech audio
+│  └─ uploads/                    # All uploaded media (images/audio/video)
+├─ eggs/
+│  ├─ egg.php                     # Public egg renderer (image/caption/body + audio/video player)
+│  ├─ list.php                    # JSON feed of eggs (slug, title, positions) for homepage
+│  └─ data/*.json                 # One JSON per egg (content + pos_left/pos_top in vw/vh)
+└─ admin/
+   ├─ setup.php                   # First-run wizard (site name/domain/password)
+   ├─ index.php                   # CMS UI (create/edit/rename/delete + media picker)
+   ├─ visual.php                  # Full-screen visual placement editor
+   ├─ save.php                    # Persists egg content (image/audio/video, URLs or uploads)
+   ├─ save_position.php           # Persists vw/vh position for a given egg
+   ├─ media_list.php              # Returns uploads (images/audio/video) with metadata
+   ├─ rename.php                  # Rename egg slug
+   ├─ delete.php                  # Delete egg
+   ├─ util.php                    # Helpers (slugify, list/load/save eggs, WebP conversion)
+   ├─ config.php                  # Paths + session + setup state
+   ├─ site.json                   # (generated) {site_name, domain, first_run:false, ...}
+   └─ password.json               # (generated) {hash, updated_at}
 ```
 
-## Tech Notes
+---
 
-* **Positions are viewport-relative**:
+## Data Model (egg JSON)
 
-  * `pos_left` (vw), `pos_top` (vh). This keeps hotspots consistent across screen sizes.
-* **Auto-WebP** conversion:
+Example `eggs/data/usb.json`:
 
-  * Requires PHP GD with WebP. If missing, uploads are saved in original format.
-* **Security**
+```json
+{
+  "title": "USB of Doom",
+  "caption": "He swore it was ‘just charging’",
+  "alt": "Close-up of a cursed USB stick",
+  "body": "<p>Short story with <strong>light HTML</strong>.</p>",
+  "image": "/assets/uploads/usb.webp",
+  "audio": "/assets/uploads/usb-laugh.mp3",
+  "video": "/assets/uploads/usb-fail.mp4",
+  "pos_left": 62.4,
+  "pos_top": 41.8
+}
+```
 
-  * Change the default password immediately (we force this on first login).
-  * Optionally add HTTP Basic Auth to `/admin`.
-  * Back up `eggs/data/*.json` regularly (that’s your content).
-* **Performance**
+* Positions are **viewport-relative**:
 
-  * WebP keeps images light; prefer it when possible.
-  * Home hotspots are loaded via `eggs/list.php` (small JSON).
+  * `pos_left` = vw (0–100)
+  * `pos_top`  = vh (0–100)
 
-## GitHub Workflow
+---
 
-1. Make edits locally (or copy/paste the provided files).
-2. Commit and push:
+## Media Guidelines
 
-   ```bash
-   git add .
-   git commit -m "sucky.life: visual editor, dynamic hotspots, animated modal, play/stop tears"
-   git push origin main
-   ```
-3. Deploy to your host (or wire CI/CD to rsync/FTP).
+* **Images**: any common format; auto-converted to **WebP** when GD supports it; otherwise original is kept.
+* **Audio**: mp3, m4a/aac, wav, ogg/oga, webm (no transcoding).
+* **Video**: mp4, webm, ogg/ogv, mov, m4v (no transcoding).
 
-## Troubleshooting
+  * For best cross-browser playback: **MP4 (H.264/AAC)** or **WebM (VP9/Opus)**.
 
-* **I don’t see my hotspots**
+> If you want automatic transcoding or thumbnails, we can add an FFmpeg step later.
 
-  * Make sure each egg you expect to see has `pos_left` and `pos_top` saved in its JSON. Use Admin → **Visual Editor** to place.
-* **Images don’t convert to WebP**
+---
 
-  * Your PHP GD may lack WebP; file saves in original format. That’s fine; site will still work.
-* **Can’t upload**
+## Admin: Visual Editor (accuracy notes)
 
-  * Ensure `assets/uploads/` is writable (e.g., perm 775).
-* **Password problems**
+* Opens the homepage in an iframe that **fills the screen**.
+* Clicks are converted to **vw/vh** using the actual `window.innerWidth/innerHeight` of the loaded page.
+* The editor overlays a marker + HUD with the exact saved values and an optional grid.
+* “Center” button drops the marker at 50vw / 50vh.
 
-  * Password is managed by `/admin/password.json`. Use Admin → **Change password**. If locked out (last resort), delete `password.json` to restore default `sucky-life` at next login (then you’ll be forced to set a new one).
+---
+
+## Deep Links
+
+Open a specific egg directly:
+
+```
+https://yourdomain/?egg=slug
+```
+
+The homepage auto-opens the modal with that egg.
+
+---
 
 ## Accessibility
 
-* Add descriptive **ALT text** for each egg image in Admin to help screen readers.
-* Buttons have ARIA labels; modal can be closed with **Esc**.
+* Provide **ALT text** for each egg image.
+* Buttons have ARIA labels; modal supports **Esc** to close.
+* Video and audio players use native controls for keyboard/screen reader support.
 
+---
+
+## Performance Tips
+
+* Prefer **WebP** for images (automatic when possible).
+* Keep video sizes sane (short clips; compress if needed).
+* Hotspots are loaded once via a tiny JSON (`eggs/list.php`).
+
+---
+
+## Security
+
+* Password is hashed (PHP `password_hash`) in `admin/password.json`.
+* Protect `/admin` further with HTTP Basic Auth if you want extra belt-and-suspenders.
+* If you forget the password, as a last resort delete `admin/password.json` and re-run the setup (you’ll set a new one).
+
+---
+
+## Deploy / Update
+
+1. Copy new files up (or use Git/CI).
+2. Ensure `assets/uploads/` and `eggs/data/` remain **writable**.
+3. No migrations needed—flat files keep your content.
+
+> Moving from a much older build? Rename your root `index.html` to `index.php` (or just keep it—our `index.php` is what gets served).
+
+---
+
+## Troubleshooting
+
+* **Admin shows header only (blank body)**
+  Ensure you’ve uploaded the full `admin/index.php` (not the earlier stub) and that `eggs/data/` exists.
+* **Hotspots don’t show**
+  The egg must have both `pos_left` and `pos_top`. Use the **Visual Editor** to save a position.
+* **Uploads fail**
+  Check folder permissions on `assets/uploads/`.
+* **WebP not generated**
+  Your PHP GD may lack WebP support—images will stay in original format (that’s fine).
+* **Video won’t play on iOS**
+  Re-encode to **H.264/AAC MP4** or **WebM**; MOV/OGV isn’t universally supported.
+
+---
+
+## Dev Notes (for the curious)
+
+* No DB, just **flat JSON** + **uploads** folder.
+* Homepage effects:
+
+  * **Play/Stop** toggles the main audio loop
+  * Tears spawn only when audio is **playing & unmuted**
+  * **Mute** toggles without stopping tears logic (tears stop if muted)
+  * Cursor **repels** active droplets
+  * Modal open/close uses CSS transitions; the iframe src resets on close.
+* Visual Editor communicates via `postMessage` (`egg-editor-click` → vw/vh), so placements stay consistent across devices.
+
+---
+
+## Roadmap Ideas (if you want v2 spice)
+
+* Snap-to-grid (hold **Shift** to snap to 1vw / 1vh).
+* Trash/restore (“Recycle Bin” for deleted eggs).
+* Per-egg autoplay-muted video, or poster thumbnails.
+* Optional FFmpeg pipeline for transcoding and generating GIF/thumbnail previews.
