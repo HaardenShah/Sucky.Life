@@ -3,7 +3,6 @@ require __DIR__ . '/admin/config.php';
 if($NEEDS_SETUP){
   header('Location: /admin/setup.php'); exit;
 }
-// $SITE_NAME and $SITE_DOMAIN now available
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,8 +16,10 @@ if($NEEDS_SETUP){
     }
     html,body{height:100%} *{box-sizing:border-box}
     body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial; color:var(--fg); background:var(--bg); overflow:hidden}
+
     .bg{position:fixed; inset:0; background:#000 center/cover no-repeat; filter:contrast(1.05) saturate(1.05) brightness(0.9); transform:scale(1.02)}
     .overlay{position:fixed; inset:0; background:radial-gradient(1200px 600px at 50% 10%, transparent, rgba(0,0,0,.55) 60%, rgba(0,0,0,.8)); pointer-events:none}
+
     header{position:fixed; top:16px; left:16px; right:16px; display:flex; justify-content:space-between; align-items:center; gap:16px; mix-blend-mode:lighten; z-index:5}
     .brand{font-weight:800; letter-spacing:.5px}
     .brand span{color:var(--yellow)}
@@ -29,21 +30,57 @@ if($NEEDS_SETUP){
     .cta{border-color:var(--yellow); background:rgba(255,204,0,.08)}
     .cta .pulse{display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--yellow); margin-left:8px; box-shadow:0 0 0 0 rgba(255,204,0,.6); animation:pulse 1.6s infinite}
     @keyframes pulse{to{box-shadow:0 0 0 16px rgba(255,204,0,0)}}
+
     main{position:fixed; inset:0; display:grid; place-items:center; text-align:center; padding:24px; z-index:4}
-    h1{font-size:clamp(32px,6vw,68px); margin:0 0 10px; text-shadow:0 6px 30px rgba(0,0,0,.55)}
-    .lip{font-size:clamp(16px,2.2vw,22px); color:var(--dim); font-style:italic; display:inline-flex; align-items:center; gap:10px}
-    .lip svg{width:44px; height:44px; filter: drop-shadow(0 4px 18px rgba(0,0,0,.45))}
+    h1{font-size:clamp(32px,6vw,68px); margin:0 0 14px; text-shadow:0 6px 30px rgba(0,0,0,.55)}
+
+    /* NEW: tappable instruction text that animates while playing */
+    .lip-text{
+      font-size:clamp(16px,2.2vw,22px);
+      color:var(--dim);
+      font-style:italic;
+      cursor:pointer;
+      user-select:none;
+      text-align:center;
+      transition:color .2s ease, transform .15s ease, text-shadow .2s ease;
+    }
+    .lip-text:hover{ color:#ff7aa2; transform:scale(1.02); }
+    .lip-text:active{ transform:scale(0.985); }
+    .lip-text.playing{
+      color:var(--yellow);
+      text-shadow:0 0 12px rgba(255,204,0,.35);
+      animation: wobble 1.4s var(--bezier) infinite, vibrate .18s linear infinite;
+    }
+    @keyframes wobble{
+      0%{transform:rotate(0deg) translateZ(0)}
+      20%{transform:rotate(-2deg) translateY(-1px)}
+      40%{transform:rotate(1.6deg) translateY(0)}
+      60%{transform:rotate(-1deg) translateY(1px)}
+      80%{transform:rotate(1deg) translateY(0)}
+      100%{transform:rotate(0deg) translateZ(0)}
+    }
+    @keyframes vibrate{
+      0%{transform:translate(0,0)}
+      25%{transform:translate(0.2px,-0.2px)}
+      50%{transform:translate(-0.2px,0.2px)}
+      75%{transform:translate(0.2px,0.2px)}
+      100%{transform:translate(0,0)}
+    }
+
     .hint{margin-top:14px; font-size:14px; color:#cfcfcf; opacity:.8}
+
     .tears{position:fixed; inset:0; pointer-events:none; z-index:3}
     .tear{position:absolute; width:10px; height:14px; background:linear-gradient(#9cd3ff,#4aa3ff); border-radius:50% 50% 60% 60%; filter:blur(.2px); opacity:.9; animation:fall 2.8s linear infinite; transform:translate(var(--pushX,0px), var(--pushY,0px)); will-change:transform}
     @keyframes fall{to{transform:translateY(110vh) rotate(12deg); opacity:.95}}
+
     .egg-spot{position:fixed; width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,.06); outline:1px dashed rgba(255,255,255,.12); cursor:help; transform:translate(-50%,-50%) scale(.96); transition:transform .28s var(--bezier), outline-color .25s ease, background .25s ease, box-shadow .25s ease; box-shadow:0 6px 20px rgba(0,0,0,.35); z-index:4}
     .egg-spot:hover{transform:translate(-50%,-50%) scale(1.06); outline-color:rgba(255,255,255,.25); background:rgba(255,255,255,.12); box-shadow:0 10px 30px rgba(0,0,0,.45)}
     .egg-note{position:fixed; transform:translate(-50%,-12px) scale(.98); padding:10px 12px; border-radius:12px; white-space:nowrap; background:rgba(0,0,0,.72); color:#f9f9f9; font-size:13px; border:1px solid rgba(255,255,255,.18); opacity:0; pointer-events:none; transition:opacity .25s ease, transform .28s var(--bezier); z-index:4}
     .egg-spot:hover ~ .egg-note[data-for]:not([hidden]){opacity:1; transform:translate(-50%,-16px) scale(1)}
+
     .modal{position:fixed; inset:0; display:grid; place-items:center; z-index:50; pointer-events:none; opacity:0; visibility:hidden; transition:opacity .28s var(--bezier), visibility 0s linear .28s}
     .modal .backdrop{position:absolute; inset:0; background:rgba(0,0,0,.55); backdrop-filter: blur(2px); opacity:0; transition:opacity .28s var(--bezier)}
-    .modal .dialog{position:relative; width:min(92vw, 880px); height:min(80vh, 560px); border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.2); box-shadow:0 30px 80px rgba(0,0,0,.6); transform:translateY(12px) scale(.98); opacity:0; transition:transform .34s var(--bezier), opacity .3s ease; background:#0b0b0b}
+    .modal .dialog{position:relative; width:min(92vw, 900px); height:min(80vh, 580px); border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.2); box-shadow:0 30px 80px rgba(0,0,0,.6); transform:translateY(12px) scale(.98); opacity:0; transition:transform .34s var(--bezier), opacity .3s ease; background:#0b0b0b}
     .modal .dialog header{position:absolute; top:8px; right:8px; z-index:2}
     .modal .dialog button{background:rgba(255,255,255,.14)}
     .modal .dialog iframe{width:100%; height:100%; display:block; background:#0b0b0b}
@@ -53,6 +90,7 @@ if($NEEDS_SETUP){
     .modal.closing{pointer-events:none}
     .modal.closing .backdrop{opacity:0}
     .modal.closing .dialog{transform:translateY(10px) scale(.985); opacity:0}
+
     footer{position:fixed; bottom:10px; left:0; right:0; text-align:center; font-size:12px; color:#c4c4c4; opacity:.8; z-index:2}
   </style>
 </head>
@@ -71,12 +109,12 @@ if($NEEDS_SETUP){
   <main>
     <div>
       <h1>*curls lip* “Life’s just sooo hard, bro…”</h1>
-      <div class="lip" aria-live="polite" aria-atomic="true">
-        <svg viewBox="0 0 128 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M8 40 Q64 8 120 40 Q64 56 8 40Z" fill="#ff7aa2" stroke="#000" stroke-opacity=".25"/>
-        </svg>
-        <span id="statusText">Press the button to unleash the screech.</span>
-      </div>
+
+      <!-- NEW tappable instruction text -->
+      <p id="screechToggle" class="lip-text" role="button" tabindex="0" aria-pressed="false">
+        <em>Press here to unleash the screech.</em>
+      </p>
+
       <div class="hint">(Mobile browsers block autoplay with sound. Tap once and we’ll do the rest.)</div>
     </div>
   </main>
@@ -103,16 +141,40 @@ if($NEEDS_SETUP){
     function stopTears(){ if(tearTimer){ clearInterval(tearTimer); tearTimer=null; } }
 
     // Audio: Play/Stop toggle + mute
-    const audio = document.getElementById('screech'); const btnPlay=document.getElementById('btnPlay'); const btnMute=document.getElementById('btnMute'); const statusText=document.getElementById('statusText');
+    const audio = document.getElementById('screech');
+    const btnPlay=document.getElementById('btnPlay');
+    const btnMute=document.getElementById('btnMute');
+
     function haptics(){ try{ if(navigator.vibrate) navigator.vibrate([20,40,20]); }catch(_){} }
-    function setUI(playing){ if(playing){ btnPlay.innerHTML='Stop the suffering'; btnPlay.setAttribute('aria-label','Stop'); btnMute.hidden=false; btnMute.textContent=audio.muted?'🔊 Unmute':'🔇 Mute'; statusText.textContent=audio.muted?'Muted. (Coward.)':'Visceral screech engaged. (You asked for this.)'; } else { btnPlay.innerHTML='Make it extra sucky <span class="pulse"></span>'; btnPlay.setAttribute('aria-label','Play'); btnMute.hidden=true; statusText.textContent='Press the button to unleash the screech.'; } }
+    function setUI(playing){
+      const lip = document.getElementById('screechToggle');
+      if(playing){
+        btnPlay.innerHTML='Stop the suffering';
+        btnPlay.setAttribute('aria-label','Stop');
+        btnMute.hidden=false;
+        btnMute.textContent=audio.muted?'🔊 Unmute':'🔇 Mute';
+      } else {
+        btnPlay.innerHTML='Make it extra sucky <span class="pulse"></span>';
+        btnPlay.setAttribute('aria-label','Play');
+        btnMute.hidden=true;
+      }
+      updateLipText();
+    }
     async function playAudio(){ audio.currentTime=Math.random()*1.2; audio.loop=true; audio.muted=false; await audio.play(); startTears(); setUI(true); }
     function stopAudio(){ audio.pause(); audio.currentTime=0; stopTears(); setUI(false); }
     function updateTears(){ (!audio.paused && !audio.muted) ? startTears() : stopTears(); }
-    btnPlay.addEventListener('click', async ()=>{ try{ if(audio.paused){ haptics(); await playAudio(); } else { haptics(); stopAudio(); } }catch{ statusText.textContent='Tap once more to allow audio (your browser blocked autoplay).'; } });
-    btnMute.addEventListener('click', ()=>{ audio.muted=!audio.muted; btnMute.textContent=audio.muted?'🔊 Unmute':'🔇 Mute'; statusText.textContent=audio.muted?'Muted. (Coward.)':'Visceral screech engaged.'; updateTears(); });
+
+    btnPlay.addEventListener('click', async ()=>{ try{ if(audio.paused){ haptics(); await playAudio(); } else { haptics(); stopAudio(); } }catch{ /* autoplay blocked until next tap */ } });
+    btnMute.addEventListener('click', ()=>{ audio.muted=!audio.muted; btnMute.textContent=audio.muted?'🔊 Unmute':'🔇 Mute'; updateTears(); updateLipText(); });
+
+    // Pre-warm autoplay policy gently
     (async()=>{ try{ audio.muted=true; audio.loop=true; await audio.play(); audio.pause(); audio.currentTime=0; }catch(_){}})();
     ['play','pause','volumechange','ended'].forEach(ev=> audio.addEventListener(ev, updateTears));
+
+    // Mouse/touch repel for tears
+    const repelRadius=120, maxPush=50; let decayTimer;
+    function repel(e){ const els=document.getElementsByClassName('tear'); for(const el of els){ const r=el.getBoundingClientRect(); const cx=r.left+r.width/2, cy=r.top+r.height/2; const dx=cx-e.clientX, dy=cy-e.clientY, dist=Math.hypot(dx,dy); if(dist<repelRadius){ const s=(1-dist/repelRadius); const px=Math.max(Math.min((dx/dist)*maxPush*s*1.4, maxPush), -maxPush); const py=Math.max(Math.min((dy/dist)*maxPush*s*1.4, maxPush), -maxPush); el.style.setProperty('--pushX', px.toFixed(1)+'px'); el.style.setProperty('--pushY', py.toFixed(1)+'px'); } } clearTimeout(decayTimer); decayTimer=setTimeout(()=>{ for(const el of document.getElementsByClassName('tear')){ el.style.setProperty('--pushX','0px'); el.style.setProperty('--pushY','0px'); } },140); }
+    window.addEventListener('mousemove', repel); window.addEventListener('touchmove', ev=>{ if(ev.touches && ev.touches[0]) repel({clientX:ev.touches[0].clientX, clientY:ev.touches[0].clientY}); });
 
     // Modal animations
     const eggModal=document.getElementById('eggModal'), eggFrame=document.getElementById('eggFrame'), modalBackdrop=document.getElementById('modalBackdrop'), closeModal=document.getElementById('closeModal'); let modalOpen=false;
@@ -120,15 +182,7 @@ if($NEEDS_SETUP){
     function hideEgg(){ if(!modalOpen) return; modalOpen=false; eggModal.classList.add('closing'); eggModal.classList.remove('show'); eggModal.setAttribute('aria-hidden','true'); const done=()=>{ eggModal.removeEventListener('transitionend',done); eggFrame.src='about:blank'; document.body.style.overflow=''; eggModal.classList.remove('closing'); }; eggModal.addEventListener('transitionend',done); setTimeout(done,380); }
     modalBackdrop.addEventListener('click', hideEgg); closeModal.addEventListener('click', hideEgg); document.addEventListener('keydown', e=>{ if(e.key==='Escape' && eggModal.classList.contains('show')) hideEgg(); });
 
-    // Tear/cursor repel
-    const repelRadius=120, maxPush=50; let decayTimer;
-    function repel(e){ const els=document.getElementsByClassName('tear'); for(const el of els){ const r=el.getBoundingClientRect(); const cx=r.left+r.width/2, cy=r.top+r.height/2; const dx=cx-e.clientX, dy=cy-e.clientY, dist=Math.hypot(dx,dy); if(dist<repelRadius){ const s=(1-dist/repelRadius); const px=Math.max(Math.min((dx/dist)*maxPush*s*1.4, maxPush), -maxPush); const py=Math.max(Math.min((dy/dist)*maxPush*s*1.4, maxPush), -maxPush); el.style.setProperty('--pushX', px.toFixed(1)+'px'); el.style.setProperty('--pushY', py.toFixed(1)+'px'); } } clearTimeout(decayTimer); decayTimer=setTimeout(()=>{ for(const el of document.getElementsByClassName('tear')){ el.style.setProperty('--pushX','0px'); el.style.setProperty('--pushY','0px'); } },140); }
-    window.addEventListener('mousemove', repel); window.addEventListener('touchmove', ev=>{ if(ev.touches && ev.touches[0]) repel({clientX:ev.touches[0].clientX, clientY:ev.touches[0].clientY}); });
-
-    // Deep link auto-open (?egg=slug)
-    (function(){ const p=new URLSearchParams(location.search); const eg=p.get('egg'); if(eg){ setTimeout(()=>openEgg('eggs/egg.php?slug='+encodeURIComponent(eg)), 300);} })();
-
-    // Dynamic hotspots
+    // Hotspots
     fetch('eggs/list.php',{cache:'no-store'}).then(r=>r.json()).then(items=>{
       items.filter(i=>typeof i.pos_left==='number' && typeof i.pos_top==='number').forEach(addHotspot);
     }).catch(()=>{});
@@ -138,46 +192,58 @@ if($NEEDS_SETUP){
       const note=document.createElement('div'); note.className='egg-note'; note.dataset.for=item.slug; note.style.left=item.pos_left+'vw'; note.style.top=(item.pos_top-2)+'vh'; note.textContent=item.title||item.caption||item.slug; document.body.appendChild(note);
     }
 
-    // --- Editor-mode: only when loaded with ?from=editor ---
-  (function(){
-    const fromEditor = new URLSearchParams(location.search).get('from') === 'editor';
-    if(!fromEditor) return;
+    // Deep link auto-open (?egg=slug)
+    (function(){ const p=new URLSearchParams(location.search); const eg=p.get('egg'); if(eg){ setTimeout(()=>openEgg('eggs/egg.php?slug='+encodeURIComponent(eg)), 300);} })();
 
-    // Subtle hint overlay (doesn't affect layout)
-    const cross = document.createElement('div');
-    cross.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:60';
-    document.body.appendChild(cross);
+    // NEW: tappable instruction text control
+    const lipText = document.getElementById('screechToggle');
+    function toggleScreech(){ if(audio.paused){ playAudio().catch(()=>{}); } else { stopAudio(); } }
+    lipText.addEventListener('click', toggleScreech);
+    lipText.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); toggleScreech(); } });
 
-    function ping(x,y){
-      const dot = document.createElement('div');
-      dot.style.cssText = 'position:fixed;width:14px;height:14px;border-radius:50%;background:rgba(255,204,0,.95);box-shadow:0 6px 20px rgba(0,0,0,.45);transform:translate(-50%,-50%);z-index:61';
-      dot.style.left = x + 'px'; dot.style.top = y + 'px';
-      document.body.appendChild(dot);
-      setTimeout(()=> dot.remove(), 450);
+    function updateLipText(){
+      const playing = !audio.paused && !audio.ended;
+      const active = playing && !audio.muted;
+      lipText.classList.toggle('playing', active);
+      lipText.setAttribute('aria-pressed', playing ? 'true' : 'false');
+      lipText.innerHTML = playing
+        ? (audio.muted ? '<em>Muted. Click to stop the screech.</em>' : '<em>Click to silence the screech.</em>')
+        : '<em>Press here to unleash the screech.</em>';
     }
+    ['play','pause','ended','volumechange'].forEach(ev => audio.addEventListener(ev, updateLipText));
+    updateLipText(); // initial
 
-    function onPlace(ev){
-      // Prefer client coords (viewport), then compute vw/vh from window size
-      const x = ev.clientX, y = ev.clientY;
-      const vw = (x / window.innerWidth) * 100;
-      const vh = (y / window.innerHeight) * 100;
+    // --- Editor-mode: only when loaded with ?from=editor (for Visual Editor) ---
+    (function(){
+      const fromEditor = new URLSearchParams(location.search).get('from') === 'editor';
+      if(!fromEditor) return;
 
-      // Tell parent admin overlay
-      try{ window.parent.postMessage({ type:'egg-editor-click', vw, vh }, '*'); }catch(_){}
+      const cross = document.createElement('div');
+      cross.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:60';
+      document.body.appendChild(cross);
 
-      // Visual feedback
-      ping(x,y);
-    }
+      function ping(x,y){
+        const dot = document.createElement('div');
+        dot.style.cssText = 'position:fixed;width:14px;height:14px;border-radius:50%;background:rgba(255,204,0,.95);box-shadow:0 6px 20px rgba(0,0,0,.45);transform:translate(-50%,-50%);z-index:61';
+        dot.style.left = x + 'px'; dot.style.top = y + 'px';
+        document.body.appendChild(dot);
+        setTimeout(()=> dot.remove(), 450);
+      }
 
-    // Capture click anywhere (avoid swallowing regular clicks if needed)
-    document.addEventListener('click', function(e){
-      // Don’t hijack modal/close buttons while in editor
-      if(e.target.closest('.modal') || e.target.closest('button')) return;
-      onPlace(e);
-      e.preventDefault();
-      e.stopPropagation();
-    }, true);
-  })();
+      function onPlace(ev){
+        const x = ev.clientX, y = ev.clientY;
+        const vw = (x / window.innerWidth) * 100;
+        const vh = (y / window.innerHeight) * 100;
+        try{ window.parent.postMessage({ type:'egg-editor-click', vw, vh }, '*'); }catch(_){}
+        ping(x,y);
+      }
+      document.addEventListener('click', function(e){
+        if(e.target.closest('.modal') || e.target.closest('button')) return;
+        onPlace(e);
+        e.preventDefault();
+        e.stopPropagation();
+      }, true);
+    })();
   </script>
 </body>
 </html>
