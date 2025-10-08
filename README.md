@@ -1,6 +1,3 @@
-Perfect timing — the project’s now cohesive enough for a professional, developer-friendly `README.md`.
-Here’s a full, cleaned-up version that reflects all recent structural, UX, and security updates.
-
 ---
 
 ## 🥲 **sucky.life**
@@ -179,5 +176,3 @@ Built by a bunch of friends who take jokes too seriously.
 Dedicated to *that one guy* whose life is just so… sucky. 💀
 
 ---
-
-Would you like me to append a **“Deployment & Hosting Tips”** section too (covering permissions, SSL setup, and PHP version recommendations)? It would make the README fully production-ready.
