@@ -23,20 +23,9 @@
       background:var(--bg);
       overflow:hidden;
     }
-    .bg{
-      position:fixed; inset:0; background:#000 center/cover no-repeat;
-      filter: contrast(1.05) saturate(1.05) brightness(0.9);
-      transform: scale(1.02);
-    }
-    .overlay{
-      position:fixed; inset:0; background: radial-gradient(1200px 600px at 50% 10%, transparent, rgba(0,0,0,.55) 60%, rgba(0,0,0,.8));
-      pointer-events:none;
-    }
-    header{
-      position:fixed; top:16px; left:16px; right:16px; display:flex; justify-content:space-between; align-items:center; gap:16px;
-      mix-blend-mode: lighten;
-      z-index: 5;
-    }
+    .bg{position:fixed; inset:0; background:#000 center/cover no-repeat; filter:contrast(1.05) saturate(1.05) brightness(0.9); transform:scale(1.02)}
+    .overlay{position:fixed; inset:0; background:radial-gradient(1200px 600px at 50% 10%, transparent, rgba(0,0,0,.55) 60%, rgba(0,0,0,.8)); pointer-events:none}
+    header{position:fixed; top:16px; left:16px; right:16px; display:flex; justify-content:space-between; align-items:center; gap:16px; mix-blend-mode:lighten; z-index:5}
     .brand{font-weight:800; letter-spacing:0.5px}
     .brand span{color:var(--yellow)}
     .controls{display:flex; gap:8px}
@@ -51,95 +40,34 @@
     .cta{border-color: var(--yellow); background: rgba(255,204,0,.08)}
     .cta .pulse{display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--yellow); margin-left:8px; box-shadow:0 0 0 0 rgba(255,204,0,.6); animation:pulse 1.6s infinite}
     @keyframes pulse{to{box-shadow:0 0 0 16px rgba(255,204,0,0)}}
-
-    main{
-      position:fixed; inset:0; display:grid; place-items:center; text-align:center; padding:24px;
-      z-index: 4;
-    }
-    h1{
-      font-size: clamp(32px, 6vw, 68px); margin:0 0 10px; text-shadow: 0 6px 30px rgba(0,0,0,.55);
-    }
-    .lip{
-      font-size: clamp(16px, 2.2vw, 22px); color:var(--dim); font-style:italic;
-      display:inline-flex; align-items:center; gap:10px;
-    }
+    main{position:fixed; inset:0; display:grid; place-items:center; text-align:center; padding:24px; z-index:4}
+    h1{font-size:clamp(32px, 6vw, 68px); margin:0 0 10px; text-shadow: 0 6px 30px rgba(0,0,0,.55)}
+    .lip{font-size:clamp(16px, 2.2vw, 22px); color:var(--dim); font-style:italic; display:inline-flex; align-items:center; gap:10px}
     .lip svg{width:44px; height:44px; filter: drop-shadow(0 4px 18px rgba(0,0,0,.45));}
     .hint{margin-top:14px; font-size:14px; color:#cfcfcf; opacity:.8}
 
-    /* Tears (now tied to audio state) */
+    /* Tears (spawn only when audio is playing & unmuted) */
     .tears{position:fixed; inset:0; pointer-events:none; z-index:3}
-    .tear{
-      position:absolute; width:10px; height:14px;
-      background:linear-gradient(#9cd3ff,#4aa3ff); border-radius:50% 50% 60% 60%;
-      filter: blur(.2px); opacity:.9;
-      animation: fall 2.8s linear infinite;
-      transform: translate(var(--pushX,0px), var(--pushY,0px));
-      will-change: transform;
-    }
+    .tear{position:absolute; width:10px; height:14px; background:linear-gradient(#9cd3ff,#4aa3ff); border-radius:50% 50% 60% 60%; filter: blur(.2px); opacity:.9; animation: fall 2.8s linear infinite; transform: translate(var(--pushX,0px), var(--pushY,0px)); will-change: transform}
     @keyframes fall { to { transform: translateY(110vh) rotate(12deg); opacity:.95 } }
 
     /* Dynamic hotspots */
-    .egg-spot{
-      position:fixed; width:28px; height:28px; border-radius:50%;
-      background: rgba(255,255,255,.06);
-      outline:1px dashed rgba(255,255,255,.12);
-      cursor:help;
-      transform: translate(-50%, -50%) scale(.96);
-      transition: transform .28s var(--bezier), outline-color .25s ease, background .25s ease, box-shadow .25s ease;
-      box-shadow: 0 6px 20px rgba(0,0,0,.35);
-      z-index:4;
-    }
-    .egg-spot:hover{
-      transform: translate(-50%, -50%) scale(1.06);
-      outline-color: rgba(255,255,255,.25);
-      background: rgba(255,255,255,.12);
-      box-shadow: 0 10px 30px rgba(0,0,0,.45);
-    }
-    .egg-note{
-      position:fixed; transform: translate(-50%, -12px) scale(.98);
-      padding:10px 12px; border-radius:12px; white-space:nowrap;
-      background: rgba(0,0,0,.72); color:#f9f9f9; font-size:13px;
-      border:1px solid rgba(255,255,255,.18);
-      opacity:0; pointer-events:none;
-      transition: opacity .25s ease, transform .28s var(--bezier);
-      z-index:4;
-    }
-    .egg-spot:hover ~ .egg-note[data-for]:not([hidden]){
-      opacity:1; transform: translate(-50%, -16px) scale(1);
-    }
+    .egg-spot{position:fixed; width:28px; height:28px; border-radius:50%; background: rgba(255,255,255,.06); outline:1px dashed rgba(255,255,255,.12); cursor:help; transform: translate(-50%, -50%) scale(.96); transition: transform .28s var(--bezier), outline-color .25s ease, background .25s ease, box-shadow .25s ease; box-shadow: 0 6px 20px rgba(0,0,0,.35); z-index:4}
+    .egg-spot:hover{transform: translate(-50%, -50%) scale(1.06); outline-color: rgba(255,255,255,.25); background: rgba(255,255,255,.12); box-shadow: 0 10px 30px rgba(0,0,0,.45)}
+    .egg-note{position:fixed; transform: translate(-50%, -12px) scale(.98); padding:10px 12px; border-radius:12px; white-space:nowrap; background: rgba(0,0,0,.72); color:#f9f9f9; font-size:13px; border:1px solid rgba(255,255,255,.18); opacity:0; pointer-events:none; transition: opacity .25s ease, transform .28s var(--bezier); z-index:4}
+    .egg-spot:hover ~ .egg-note[data-for]:not([hidden]){opacity:1; transform: translate(-50%, -16px) scale(1)}
 
     /* Modal (animated open/close) */
-    .modal{
-      position:fixed; inset:0; display:grid; place-items:center; z-index:50;
-      pointer-events:none; opacity:0; visibility:hidden;
-      transition: opacity .28s var(--bezier), visibility 0s linear .28s;
-    }
-    .modal .backdrop{
-      position:absolute; inset:0; background:rgba(0,0,0,.55); backdrop-filter: blur(2px);
-      opacity:0; transition: opacity .28s var(--bezier);
-    }
-    .modal .dialog{
-      position:relative; width:min(92vw, 880px); height:min(80vh, 560px);
-      border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.2);
-      box-shadow:0 30px 80px rgba(0,0,0,.6);
-      transform: translateY(12px) scale(.98); opacity:0;
-      transition: transform .34s var(--bezier), opacity .3s ease;
-      background:#0b0b0b;
-    }
+    .modal{position:fixed; inset:0; display:grid; place-items:center; z-index:50; pointer-events:none; opacity:0; visibility:hidden; transition: opacity .28s var(--bezier), visibility 0s linear .28s}
+    .modal .backdrop{position:absolute; inset:0; background:rgba(0,0,0,.55); backdrop-filter: blur(2px); opacity:0; transition: opacity .28s var(--bezier)}
+    .modal .dialog{position:relative; width:min(92vw, 880px); height:min(80vh, 560px); border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.2); box-shadow:0 30px 80px rgba(0,0,0,.6); transform: translateY(12px) scale(.98); opacity:0; transition: transform .34s var(--bezier), opacity .3s ease; background:#0b0b0b}
     .modal .dialog header{position:absolute; top:8px; right:8px; z-index:2}
     .modal .dialog button{background:rgba(255,255,255,.14)}
     .modal .dialog iframe{width:100%; height:100%; display:block; background:#0b0b0b}
-
-    .modal.show{
-      pointer-events:auto; opacity:1; visibility:visible;
-      transition: opacity .28s var(--bezier), visibility 0s;
-    }
+    .modal.show{pointer-events:auto; opacity:1; visibility:visible; transition: opacity .28s var(--bezier), visibility 0s}
     .modal.show .backdrop{opacity:1}
     .modal.show .dialog{transform: translateY(0) scale(1); opacity:1}
-
-    .modal.closing{
-      pointer-events:none;
-    }
+    .modal.closing{pointer-events:none}
     .modal.closing .backdrop{opacity:0}
     .modal.closing .dialog{transform: translateY(10px) scale(.985); opacity:0}
 
@@ -208,18 +136,17 @@
     }
     function startTears(){
       if(tearTimer) return;
-      // burst-start with a few at once for drama
-      for(let i=0;i<4;i++) spawnTear();
+      for(let i=0;i<4;i++) spawnTear(); // burst
       tearTimer = setInterval(spawnTear, 220);
     }
     function stopTears(){
       if(tearTimer){ clearInterval(tearTimer); tearTimer=null; }
-      // optional: fade existing out by clearing quickly
+      // optional: clear existing tears
       // [...document.querySelectorAll('.tear')].forEach(el=>el.remove());
     }
 
     // =========================
-    // Audio controls
+    // Audio controls (now toggle play/stop on main button)
     // =========================
     const audio = document.getElementById('screech');
     const btnPlay = document.getElementById('btnPlay');
@@ -228,43 +155,61 @@
 
     function haptics(){ try{ if(navigator.vibrate) navigator.vibrate([20,40,20]); }catch(_){} }
 
-    function updateTearsFromAudio(){
-      // Consider "playing" only when not muted and not paused
-      if(!audio.paused && !audio.muted) startTears(); else stopTears();
-    }
-
-    async function startAudio(){
-      haptics();
-      if(!audio) return;
-      try {
-        audio.currentTime = Math.random()*1.2;
-        audio.loop = true;
-        audio.muted = false; // ensure we actually hear it
-        await audio.play();
-        statusText.textContent = 'Visceral screech engaged. (You asked for this.)';
+    function setUIState(playing){
+      if(playing){
+        btnPlay.innerHTML = 'Stop the suffering';
+        btnPlay.setAttribute('aria-label','Stop the screech');
         btnMute.hidden = false;
-        btnMute.textContent = '🔇 Mute';
-        btnPlay.disabled = true;
-        btnPlay.innerHTML = 'Screeching…';
-        updateTearsFromAudio();
-      } catch (err) {
-        statusText.textContent = 'Tap once more to allow audio (your browser blocked autoplay).';
+        btnMute.textContent = audio.muted ? '🔊 Unmute' : '🔇 Mute';
+        statusText.textContent = audio.muted ? 'Muted. (Coward.)' : 'Visceral screech engaged. (You asked for this.)';
+      } else {
+        btnPlay.innerHTML = 'Make it extra sucky <span class="pulse"></span>';
+        btnPlay.setAttribute('aria-label','Play the visceral screech');
+        btnMute.hidden = true;
+        statusText.textContent = 'Press the button to unleash the screech.';
       }
     }
 
-    btnPlay.addEventListener('click', startAudio);
+    async function playAudio(){
+      audio.currentTime = Math.random()*1.2;
+      audio.loop = true;
+      audio.muted = false;
+      await audio.play();
+      startTears();
+      setUIState(true);
+    }
+
+    function stopAudio(){
+      // Fully stop, reset, and stop tears
+      audio.pause();
+      audio.currentTime = 0;
+      stopTears();
+      setUIState(false);
+    }
+
+    function updateTearsFromAudio(){
+      if(!audio.paused && !audio.muted) startTears(); else stopTears();
+    }
+
+    btnPlay.addEventListener('click', async ()=>{
+      try{
+        if(audio.paused){ haptics(); await playAudio(); }
+        else { haptics(); stopAudio(); }
+      }catch(e){
+        statusText.textContent = 'Tap once more to allow audio (your browser blocked autoplay).';
+      }
+    });
+
     btnMute.addEventListener('click', ()=>{
-      if(!audio) return;
       audio.muted = !audio.muted;
       btnMute.textContent = audio.muted ? '🔊 Unmute' : '🔇 Mute';
       statusText.textContent = audio.muted ? 'Muted. (Coward.)' : 'Visceral screech engaged.';
       updateTearsFromAudio();
     });
 
-    // If the browser allowed us to autoplay muted in the background, do NOT start tears until unmuted.
-    (async()=>{ try{ audio.muted=true; audio.loop=true; await audio.play(); }catch(_){ /* ignore */ } })();
+    // Don’t auto-start tears if autoplayed silently
+    (async()=>{ try{ audio.muted=true; audio.loop=true; await audio.play(); audio.pause(); audio.currentTime=0; }catch(_){ /* ignore */ } })();
 
-    // also react if user agent pauses / other changes
     ['play','pause','volumechange','ended'].forEach(ev=> audio.addEventListener(ev, updateTearsFromAudio));
 
     // =========================
@@ -283,39 +228,33 @@
     const eggFrame = document.getElementById('eggFrame');
     const modalBackdrop = document.getElementById('modalBackdrop');
     const closeModal = document.getElementById('closeModal');
-
     let modalOpen = false;
+
     function openEgg(src){
       if(!src || modalOpen) return;
       modalOpen = true;
       eggFrame.src = src;
-      eggModal.classList.remove('closing'); // reset any closing state
+      eggModal.classList.remove('closing');
       eggModal.classList.add('show');
       eggModal.setAttribute('aria-hidden','false');
       document.body.style.overflow='hidden';
       haptics();
     }
-
     function hideEgg(){
       if(!modalOpen) return;
       modalOpen = false;
-      // play close animation
       eggModal.classList.add('closing');
       eggModal.classList.remove('show');
       eggModal.setAttribute('aria-hidden','true');
-      // after transition, clear src and unlock scroll
       const done = ()=> {
         eggModal.removeEventListener('transitionend', done);
         eggFrame.src = 'about:blank';
         document.body.style.overflow='';
         eggModal.classList.remove('closing');
       };
-      // attach once
       eggModal.addEventListener('transitionend', done);
-      // safety timeout in case a transitionend is missed
       setTimeout(done, 380);
     }
-
     modalBackdrop.addEventListener('click', hideEgg);
     closeModal.addEventListener('click', hideEgg);
     document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && eggModal.classList.contains('show')) hideEgg(); });
@@ -349,9 +288,8 @@
     // Dynamic hotspots from server
     // =========================
     fetch('eggs/list.php', {cache:'no-store'}).then(r=>r.json()).then(items=>{
-      items.filter(i => typeof i.pos_left === 'number' && typeof i.pos_top === 'number')
-           .forEach(i => addHotspot(i));
-    }).catch(()=>{ /* fail silently */ });
+      items.filter(i => typeof i.pos_left === 'number' && typeof i.pos_top === 'number').forEach(i => addHotspot(i));
+    }).catch(()=>{ /* silent */ });
 
     function addHotspot(item){
       const spot = document.createElement('div');
