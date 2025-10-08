@@ -1,45 +1,49 @@
 <?php
-// Core paths
-$DATA_DIR = __DIR__ . '/../eggs/data';
-$UPLOAD_DIR = __DIR__ . '/../assets/uploads';
-$BASE_UPLOAD_URL = '/assets/uploads';
+/**
+ * admin/config.php — shared config, sessions, site settings
+ * - Loads site.json, visitor gate flags
+ * - Starts hardened session
+ * - Provides CSRF helpers + simple rate limiting
+ */
+header('Content-Type: text/html; charset=utf-8');
+ini_set('default_charset','UTF-8');
 
-// Config files
-$SITE_FILE = __DIR__ . '/site.json';
-$PWD_FILE  = __DIR__ . '/password.json';
+/* Session hardening */
+@ini_set('session.use_strict_mode', 1);
+@ini_set('session.cookie_httponly', 1);
+if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') { @ini_set('session.cookie_secure', 1); }
+if (session_status() !== PHP_SESSION_ACTIVE) { session_start(); }
 
-if(!is_dir($DATA_DIR))  @mkdir($DATA_DIR, 0775, true);
-if(!is_dir($UPLOAD_DIR))@mkdir($UPLOAD_DIR, 0775, true);
-
-session_start();
-
-// ---- Load site config ----
+/* Site settings */
+$SITE_JSON   = __DIR__ . '/site.json';
+$PWD_JSON    = __DIR__ . '/password.json';
 $SITE_NAME   = 'sucky.life';
-$SITE_DOMAIN = 'sucky.life';
-$NEEDS_SETUP = false;
+$SITE_DOMAIN = '';
+$NEEDS_SETUP = !file_exists($SITE_JSON) || !file_exists($PWD_JSON);
 
-if(file_exists($SITE_FILE)){
-  $site = json_decode(file_get_contents($SITE_FILE), true);
-  if(is_array($site)){
-    $SITE_NAME   = $site['site_name'] ?? $SITE_NAME;
-    $SITE_DOMAIN = $site['domain']    ?? $SITE_DOMAIN;
-    if(!empty($site['first_run'])) $NEEDS_SETUP = true;
-  } else {
-    $NEEDS_SETUP = true;
-  }
-} else {
-  $NEEDS_SETUP = true;
+$GATE_ON   = false;
+$GATE_HASH = '';
+
+if (!$NEEDS_SETUP) {
+  $site = json_decode(@file_get_contents($SITE_JSON), true) ?: [];
+  $SITE_NAME   = $site['site_name'] ?? $SITE_NAME;
+  $SITE_DOMAIN = $site['domain']    ?? $SITE_DOMAIN;
+  $GATE_ON     = (bool)($site['visitor_gate_on'] ?? false);
+  $GATE_HASH   = $site['visitor_password_hash'] ?? '';
 }
 
-// ---- Load password ----
-$ADMIN_PASSWORD_HASH = null;
-if(file_exists($PWD_FILE)){
-  $pwd = json_decode(file_get_contents($PWD_FILE), true);
-  if(is_array($pwd) && !empty($pwd['hash'])){
-    $ADMIN_PASSWORD_HASH = $pwd['hash'];
-  } else {
-    $NEEDS_SETUP = true;
-  }
-} else {
-  $NEEDS_SETUP = true;
+/* CSRF */
+function csrf_token(): string { if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(32)); return $_SESSION['csrf']; }
+function csrf_input(): string { return '<input type="hidden" name="csrf" value="'.htmlspecialchars(csrf_token(), ENT_QUOTES).'">'; }
+function require_csrf(): void { $ok = !empty($_POST['csrf']) && hash_equals($_SESSION['csrf'] ?? '', $_POST['csrf']); if (!$ok) { http_response_code(400); exit('Bad CSRF'); } }
+
+/* Simple rate limiting */
+function rate_limit(string $key, int $limit, int $windowSec): bool {
+  $now = time();
+  $_SESSION['rl'] = $_SESSION['rl'] ?? [];
+  $bucket = $_SESSION['rl'][$key] ?? ['t'=>$now,'n'=>0];
+  if (($now - $bucket['t']) > $windowSec) { $bucket = ['t'=>$now,'n'=>0]; }
+  $bucket['n']++;
+  $_SESSION['rl'][$key] = $bucket;
+  return $bucket['n'] <= $limit;
 }

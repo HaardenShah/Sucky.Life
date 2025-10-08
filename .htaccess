@@ -1,0 +1,17 @@
+# Deny direct JSON
+<IfModule mod_authz_core.c>
+  <FilesMatch "\.json$">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Referrer-Policy "no-referrer"
+  Header set Permissions-Policy "geolocation=(), microphone=(), camera=(), interest-cohort=()"
+  Header set Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; frame-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; frame-ancestors 'self'"
+</IfModule>
+
+AddDefaultCharset utf-8

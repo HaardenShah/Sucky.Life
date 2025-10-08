@@ -1,434 +1,293 @@
 <?php
-require __DIR__.'/config.php';
-require __DIR__.'/util.php';
+header('Content-Type: text/html; charset=utf-8'); ini_set('default_charset','UTF-8');
+require __DIR__ . '/config.php';
+require __DIR__ . '/util.php';
 
-// If needs setup, force to setup
-if($NEEDS_SETUP){ header('Location: /admin/setup.php'); exit; }
-
-if(isset($_POST['password'])){
-  if(password_verify($_POST['password'], $ADMIN_PASSWORD_HASH)){
-    $_SESSION['authed'] = true; 
-    header('Location: index.php'); exit;
-  } else { $error='Invalid password'; }
-}
-if(isset($_GET['logout'])){ session_destroy(); header('Location: index.php'); exit; }
-$authed = !empty($_SESSION['authed']);
+if (empty($_SESSION['authed'])) { header('Location: /admin/login.php'); exit; }
 
 $eggs = list_eggs();
-$slug = $_GET['slug'] ?? '';
-if(!$slug && count($eggs)) $slug = $eggs[0];
-$current = $slug ? load_egg($slug) : null;
-?><!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Egg Manager — <?= htmlspecialchars($SITE_NAME) ?></title>
+$slug = $_GET['slug'] ?? ($eggs[0] ?? '');
+$data = $slug ? (load_egg($slug) ?? []) : [];
+
+$site_name   = $SITE_NAME;
+$site_domain = $SITE_DOMAIN;
+?>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Egg Manager — <?= htmlspecialchars($site_name) ?></title>
 <style>
-  :root{ --bg:#0f1115; --card:#141823; --line:#23283a; --fg:#f1f1f1; --muted:#a9afbf; --brand:#ffcc00; --bezier:cubic-bezier(.22,.61,.36,1) }
-  *{box-sizing:border-box}
-  body{margin:0; font-family:system-ui,Segoe UI,Roboto,Inter,Arial; background:#0f1115; color:var(--fg)}
-  header,footer{padding:12px 16px; background:#101421; border-bottom:1px solid var(--line)}
-  main{display:grid; grid-template-columns:320px 1fr; gap:18px; padding:18px}
-  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px}
-  a{color:var(--brand)}
-  input,textarea{width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:#0c0f19; color:var(--fg)}
-  label{font-weight:600; font-size:13px}
-  .row{display:grid; gap:10px; grid-template-columns:1fr 1fr}
-  button{padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:#1a2030; color:var(--fg); cursor:pointer; transition:transform .18s var(--bezier)}
-  button:hover{transform:translateY(-1px)}
-  ul{list-style:none; padding:0; margin:0}
-  li{margin:0 0 8px; display:flex; align-items:center; justify-content:space-between; gap:8px}
-  .muted{color:var(--muted); font-size:12px}
-  .actions button{font-size:12px; padding:6px 8px}
-  .drop{border:2px dashed #3a4363; border-radius:12px; padding:12px; text-align:center; background:#0b0f1a}
-  .drop.drag{background:#0e1424; border-color:#6573a3}
-  .preview{margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
-  .preview img{max-height:90px; border-radius:8px; border:1px solid var(--line)}
-  .preview video{max-height:140px; border-radius:8px; border:1px solid var(--line)}
-  .pill{display:inline-block; padding:2px 8px; border:1px solid var(--line); border-radius:999px; font-size:12px; color:var(--muted)}
-  .help{font-size:12px; color:var(--muted); margin-top:6px}
-  .sectionTitle{margin:14px 0 6px; font-weight:700; color:#e9e9e9}
-
-  /* Media Picker modal */
-  .modal{position:fixed; inset:0; display:grid; place-items:center; z-index:1000; pointer-events:none; opacity:0; visibility:hidden; transition:opacity .25s var(--bezier), visibility 0s linear .25s}
-  .modal.show{pointer-events:auto; opacity:1; visibility:visible; transition:opacity .25s var(--bezier), visibility 0s}
-  .backdrop{position:absolute; inset:0; background:rgba(0,0,0,.55); backdrop-filter: blur(2px); }
-  .dialog{position:relative; width:min(92vw,1100px); height:min(86vh,720px); background:#0b0f1a; border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 28px 80px rgba(0,0,0,.6)}
-  .dialog header{display:flex; align-items:center; gap:10px; padding:10px; border-bottom:1px solid var(--line); background:#0f1423}
-  .dialog header input{flex:1}
-  .tabs{display:flex; gap:6px}
-  .tabs button{padding:8px 12px}
-  .tabs .active{background:#1a2032}
-  .grid{flex:1; overflow:auto; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:12px}
-  .tile{border:1px solid var(--line); border-radius:10px; background:#0f1423; padding:8px; cursor:pointer; transition:transform .18s var(--bezier), border-color .2s}
-  .tile:hover{transform:translateY(-2px); border-color:#3d4670}
-  .thumb{height:130px; background:#0b0f1a; border-radius:8px; display:grid; place-items:center; overflow:hidden; margin-bottom:8px}
-  .thumb img,.thumb video{max-width:100%; max-height:100%; display:block}
-  .meta{font-size:12px; color:#cfd3df; word-break:break-all}
-  .audioDemo,.videoDemo{width:100%}
-  .dialog footer{padding:10px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:8px; background:#0f1423}
-</style></head>
+  :root{ --bg:#0e0f12; --panel:#0f1423; --line:#23283a; --fg:#eef2ff; --mut:#a6aec2; --brand:#ffcc00; --accent:#86b5ff; --danger:#ff6b6b; --bezier:cubic-bezier(.22,.61,.36,1) }
+  *{box-sizing:border-box} html,body{height:100%} body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Inter,Arial}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:#0b0f1d;border-bottom:1px solid var(--line)}
+  .brand{font-weight:800;letter-spacing:.3px}
+  .nav a{color:#ffd84d;text-decoration:none;margin-left:16px}
+  .nav a.muted{color:#cbd5ff}.nav a.danger{color:#ff6b6b}
+  .wrap{display:grid;grid-template-columns:300px 1fr;gap:16px;padding:16px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.35)}
+  .side{padding:12px}.main{padding:16px}
+  .sec-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 10px}
+  .sec-title h2{margin:0;font-size:16px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid #3a405b;background:#141a2b;color:#eef2ff;cursor:pointer;text-decoration:none;transition:transform .18s var(--bezier), background .2s}
+  .btn:hover{transform:translateY(-1px);background:#1a2035}.btn.brand{border-color:#6d5b00;background:rgba(255,204,0,.1);color:#ffd84d}.btn.small{padding:6px 10px;font-size:13px}.btn.danger{border-color:#6b2b2b;color:#ffb5b5;background:rgba(255,0,0,.05)}
+  .list{margin:0;padding:0;list-style:none}
+  .list li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border-radius:10px;cursor:pointer}
+  .list li.active{background:#171d31}.list li:hover{background:#141a2b}
+  .list .title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .list .slug{color:#9aa2b8;font-size:12px}
+  .empty{padding:16px;color:#b9c0d4;font-style:italic}
+  label{display:block;margin:14px 0 6px;color:#c8cbe0}
+  input[type=text], textarea{width:100%;padding:12px;border-radius:12px;border:1px solid #2a2f42;background:#0b1020;color:#f0f4ff;font-size:14px}
+  textarea{min-height:140px;resize:vertical} input[type=file]{display:none}
+  .row{display:flex;gap:12px;flex-wrap:wrap}.col{flex:1 1 260px}
+  .media-block{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+  .media-actions{display:flex;gap:8px}
+  .preview{margin-top:8px;border:1px dashed #364061;border-radius:12px;padding:8px;background:#0a0f1e}
+  .preview img{max-width:100%;display:block;border-radius:10px}
+  .preview audio,.preview video{width:100%;display:block}
+  .drop{margin-top:8px;border:1px dashed #2c3556;border-radius:12px;padding:10px;text-align:center;color:#90a0c2;background:#0a0f1e}
+  .drop.drag{border-color:#86b5ff;color:#cfe2ff;background:#0d1530}
+  .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+  .modal{position:fixed;inset:0;display:grid;place-items:center;z-index:50;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .25s var(--bezier), visibility 0s linear .25s}
+  .modal .backdrop{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(2px);opacity:0;transition:opacity .25s var(--bezier)}
+  .modal .dialog{position:relative;width:min(92vw, 960px);height:min(80vh, 640px);border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#0d1222;transform:translateY(8px) scale(.98);opacity:0;transition:transform .3s var(--bezier), opacity .25s ease}
+  .modal.show{pointer-events:auto;opacity:1;visibility:visible;transition:opacity .25s var(--bezier), visibility 0s}
+  .modal.show .backdrop{opacity:1}.modal.show .dialog{opacity:1;transform:translateY(0) scale(1)}
+  .picker-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line)}
+  .picker-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(160px,1fr));gap:10px;padding:12px;overflow:auto;height:calc(100% - 46px)}
+  .tile{border:1px solid #2c3556;background:#0b0f1e;border-radius:12px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px}
+  .tile:hover{border-color:#4c5fa8}.thumb{width:100%;aspect-ratio:16/9;background:#0a0d18;border-radius:8px;display:grid;place-items:center;overflow:hidden}
+  .thumb img{max-width:100%;max-height:100%}.meta{font-size:12px;color:#9aa2b8;display:flex;justify-content:space-between;gap:6px}
+</style>
+</head>
 <body>
-<header>
-  <strong>Egg Manager — <?= htmlspecialchars($SITE_NAME) ?></strong>
-  <span style="float:right;">
-    <?php if($authed): ?><a href="setpwd.php">Change password</a> &nbsp;|&nbsp; <a href="?logout=1">Logout</a><?php endif; ?>
-  </span>
-</header>
-
-<?php if(!$authed): ?>
-  <main style="display:block; max-width:420px; margin:80px auto;">
-    <div class="card">
-      <?php if(!empty($error)) echo '<p style="color:#ff6b6b">'.$error.'</p>'; ?>
-      <form method="post">
-        <label>Password</label>
-        <input type="password" name="password" required>
-        <div style="margin-top:10px"><button type="submit">Enter</button></div>
-      </form>
-      <p class="muted" style="margin-top:8px"><a href="/admin/setup.php">Run setup again</a> (overwrites settings)</p>
+  <div class="topbar">
+    <div class="brand">Egg Manager — <small><?= htmlspecialchars($site_name) ?></small></div>
+    <div class="nav">
+      <a class="muted" href="/admin/privacy.php">Privacy</a>
+      <a class="muted" href="/admin/change_password.php">Change password</a>
+      <a class="danger" href="/admin/logout.php">Logout</a>
     </div>
-  </main>
-<?php else: ?>
-  <main>
-    <aside class="card">
-      <h3>All Eggs</h3>
-      <ul>
-        <?php if(!$eggs): ?>
-          <li class="muted">No eggs yet — create one below.</li>
-        <?php else: foreach($eggs as $s): ?>
-          <li>
-            <a href="?slug=<?=$s?>" class="pill"><?=$s?></a>
-            <span class="actions">
-              <button onclick="renameEgg('<?=$s?>')">Rename</button>
-              <button onclick="deleteEgg('<?=$s?>')" style="border-color:#5d2a2a;background:#261416">Delete</button>
-            </span>
+  </div>
+
+  <div class="wrap">
+    <aside class="panel side">
+      <div class="sec-title">
+        <h2>Eggs</h2>
+        <button class="btn small brand" id="btnNew">+ New</button>
+      </div>
+      <input type="text" id="eggSearch" placeholder="Search..." style="width:100%;padding:10px;border-radius:10px;border:1px solid #2a2f42;background:#0b1020;color:#f0f4ff;margin:6px 0 10px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#9aa2b8">
+        <input type="checkbox" id="filterDrafts"> Show drafts only
+      </label>
+
+      <?php if (!$eggs): ?>
+        <div class="empty">No eggs yet. Click <strong>New</strong> to create your first one.</div>
+      <?php else: ?>
+        <ul class="list" id="eggList">
+          <?php foreach ($eggs as $e):
+            $meta = load_egg($e) ?? [];
+            $title = $meta['title'] ?? '';
+            $isDraft = !empty($meta['draft']);
+          ?>
+          <li class="<?= $e === $slug ? 'active' : '' ?>" data-slug="<?= htmlspecialchars($e) ?>" data-draft="<?= $isDraft ? '1' : '0' ?>">
+            <div>
+              <div class="title"><?= htmlspecialchars(($title ?: $e) . ($isDraft ? ' [draft]' : '')) ?></div>
+              <div class="slug"><?= htmlspecialchars($e) ?></div>
+            </div>
+            <a class="btn small" href="?slug=<?= urlencode($e) ?>">Edit</a>
           </li>
-        <?php endforeach; endif; ?>
-      </ul>
-      <hr>
-      <form method="get">
-        <label>Create new egg</label>
-        <input name="slug" placeholder="e.g., usb" required>
-        <div style="margin-top:8px"><button type="submit">Create</button></div>
-        <p class="muted">Use letters, numbers, dashes, underscores.</p>
-      </form>
-      <hr>
-      <a href="visual.php<?= $slug ? ('?slug='.urlencode($slug)) : '' ?>" class="pill">🎯 Open Visual Editor</a>
-      <p class="muted" style="margin-top:8px">Click in the preview to place an egg.</p>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
     </aside>
 
-    <section class="card">
-      <h3><?= $slug ? 'Edit: '.htmlspecialchars($slug) : 'Select or create an egg' ?></h3>
-      <?php if($slug): ?>
-        <form id="eggForm" method="post" action="save.php" enctype="multipart/form-data">
-          <input type="hidden" name="slug" value="<?=htmlspecialchars($slug)?>">
-
-          <div class="row">
-            <div>
-              <label>Title</label>
-              <input name="title" value="<?=htmlspecialchars($current['title'] ?? '')?>" placeholder="Short title">
-            </div>
-            <div>
-              <label>Image ALT (for accessibility)</label>
-              <input name="alt" value="<?=htmlspecialchars($current['alt'] ?? '')?>" placeholder="Describe the image">
-            </div>
+    <section class="panel main">
+      <div class="sec-title">
+        <h2><?= $slug ? 'Edit egg' : 'Create egg' ?></h2>
+        <?php if ($slug): ?>
+          <div style="display:flex; gap:8px">
+            <a class="btn small" href="/admin/visual.php?slug=<?= urlencode($slug) ?>" target="_blank">Visual Editor</a>
           </div>
-
-          <div class="row">
-            <div>
-              <label>Caption</label>
-              <input name="caption" value="<?=htmlspecialchars($current['caption'] ?? '')?>" placeholder="One-liner under the image">
-            </div>
-            <div>
-              <label>Current Image</label>
-              <input id="currentImagePath" value="<?=htmlspecialchars($current['image'] ?? '')?>" disabled>
-            </div>
-          </div>
-
-          <div>
-            <label>Story (you can paste text, links, or basic HTML)</label>
-            <textarea name="body" rows="6" placeholder="Tell the story…"><?=(htmlspecialchars($current['body'] ?? ''))?></textarea>
-          </div>
-
-          <div class="row">
-            <div>
-              <label>Position</label>
-              <input value="<?=
-                 (isset($current['pos_left']) && isset($current['pos_top']))
-                 ? ('Left: '.$current['pos_left'].'vw, Top: '.$current['pos_top'].'vh')
-                 : 'Not placed yet' ?>" disabled>
-            </div>
-            <div style="display:flex;align-items:flex-end;gap:8px;">
-              <a class="pill" href="visual.php?slug=<?=urlencode($slug)?>">Set in Visual Editor →</a>
-            </div>
-          </div>
-
-          <div class="sectionTitle">Image</div>
-          <div class="drop" id="dropImg">
-            <p><strong>Drag & drop</strong> an image here, <strong>paste</strong> one, or <strong>click</strong> to choose a file.</p>
-            <input type="file" id="fileImg" name="image" accept="image/*" style="display:none">
-            <div class="preview" id="previewImg"><?php if(!empty($current['image'])): ?><img src="<?=htmlspecialchars($current['image'])?>" alt="current image"/><?php endif; ?></div>
-            <p class="help">Auto-converts to WebP when supported by PHP GD.</p>
-            <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
-              <button type="button" id="btnPickImage">📂 Choose from uploads</button>
-            </div>
-          </div>
-
-          <div class="row">
-            <div>
-              <label>OR Image URL</label>
-              <input name="image_url" id="image_url" placeholder="https://…">
-            </div>
-            <div></div>
-          </div>
-
-          <div class="sectionTitle">Audio (optional)</div>
-          <div class="drop" id="dropAudio">
-            <p><strong>Drag & drop</strong> an audio file here, or <strong>click</strong> to choose one.</p>
-            <input type="file" id="fileAudio" name="audio" accept=".mp3,.m4a,.aac,.wav,.ogg,.oga,.webm" style="display:none">
-            <div class="preview" id="previewAudio">
-              <?php if(!empty($current['audio'])): ?>
-                <span class="pill">Current: <?=htmlspecialchars(basename($current['audio']))?></span>
-                <audio class="audioDemo" controls src="<?=htmlspecialchars($current['audio'])?>"></audio>
-              <?php endif; ?>
-            </div>
-            <p class="help">Supported: mp3, m4a/aac, wav, ogg/oga, webm. No transcoding.</p>
-            <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
-              <button type="button" id="btnPickAudio">📂 Choose from uploads</button>
-            </div>
-          </div>
-
-          <div class="row">
-            <div>
-              <label>OR Audio URL</label>
-              <input name="audio_url" id="audio_url" placeholder="https://…/sound.mp3">
-            </div>
-            <div></div>
-          </div>
-
-          <div class="sectionTitle">Video (optional)</div>
-          <div class="drop" id="dropVideo">
-            <p><strong>Drag & drop</strong> a video here, or <strong>click</strong> to choose one.</p>
-            <input type="file" id="fileVideo" name="video" accept=".mp4,.webm,.ogg,.ogv,.mov" style="display:none">
-            <div class="preview" id="previewVideo">
-              <?php if(!empty($current['video'])): ?>
-                <span class="pill">Current: <?=htmlspecialchars(basename($current['video']))?></span>
-                <video class="videoDemo" controls preload="metadata" playsinline src="<?=htmlspecialchars($current['video'])?>"></video>
-              <?php endif; ?>
-            </div>
-            <p class="help">Best compatibility: <strong>MP4 (H.264/AAC)</strong> or <strong>WebM</strong>. No transcoding is performed.</p>
-            <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
-              <button type="button" id="btnPickVideo">📂 Choose from uploads</button>
-            </div>
-          </div>
-
-          <div class="row">
-            <div>
-              <label>OR Video URL</label>
-              <input name="video_url" id="video_url" placeholder="https://…/clip.mp4">
-            </div>
-            <div style="display:flex;align-items:flex-end;gap:8px;">
-              <button type="submit">Save</button>
-              <a class="muted" target="_blank" href="../eggs/egg.php?slug=<?=urlencode($slug)?>">Preview →</a>
-            </div>
-          </div>
-        </form>
-      <?php endif; ?>
-    </section>
-  </main>
-<?php endif; ?>
-
-<footer><small>© <?=date('Y')?> <?= htmlspecialchars($SITE_DOMAIN ?: $SITE_NAME) ?></small></footer>
-
-<!-- Media Picker Modal -->
-<div class="modal" id="mediaModal" aria-hidden="true">
-  <div class="backdrop" id="mediaBackdrop"></div>
-  <div class="dialog" role="dialog" aria-label="Choose a file">
-    <header>
-      <strong style="margin-right:8px">Media</strong>
-      <div class="tabs">
-        <button type="button" data-tab="all" class="tabBtn active">All</button>
-        <button type="button" data-tab="image" class="tabBtn">Images</button>
-        <button type="button" data-tab="audio" class="tabBtn">Audio</button>
-        <button type="button" data-tab="video" class="tabBtn">Videos</button>
+        <?php endif; ?>
       </div>
-      <input id="mediaSearch" placeholder="Search by name…">
-      <button type="button" id="mediaClose">Close</button>
-    </header>
-    <div class="grid" id="mediaGrid"></div>
-    <footer>
-      <button type="button" id="mediaUse" disabled>Use selected</button>
-    </footer>
+
+      <form id="eggForm" method="post" action="/admin/save.php" enctype="multipart/form-data">
+        <?= csrf_input() ?>
+        <input type="hidden" name="slug" value="<?= htmlspecialchars($slug) ?>" id="fldSlug">
+
+        <div class="row">
+          <div class="col">
+            <label for="fldTitle">Title</label>
+            <input type="text" id="fldTitle" name="title" value="<?= htmlspecialchars($data['title'] ?? '') ?>" placeholder="e.g., USB of Doom">
+            <label for="fldCaption">Caption</label>
+            <input type="text" id="fldCaption" name="caption" value="<?= htmlspecialchars($data['caption'] ?? '') ?>" placeholder="Short teaser under the media">
+            <label for="fldAlt">ALT text</label>
+            <input type="text" id="fldAlt" name="alt" value="<?= htmlspecialchars($data['alt'] ?? '') ?>" placeholder="Describe the main image for accessibility">
+            <label><input type="checkbox" id="fldDraft" name="draft" value="1" <?= !empty($data['draft'])?'checked':''; ?>> Draft (hidden from visitors)</label>
+            <label for="fldPub">Published at (optional)</label>
+            <input type="text" id="fldPub" name="published_at" value="<?= htmlspecialchars($data['published_at'] ?? '') ?>" placeholder="YYYY-MM-DD or leave blank">
+          </div>
+          <div class="col">
+            <label for="fldBody">Story / Body (basic HTML allowed)</label>
+            <textarea id="fldBody" name="body" placeholder="<p>That time we..."><?= htmlspecialchars($data['body'] ?? '') ?></textarea>
+          </div>
+        </div>
+
+        <!-- IMAGE -->
+        <div style="margin-top:8px">
+          <label>Primary Image</label>
+          <div class="media-block">
+            <input type="text" id="fldImage" name="image_url" value="<?= htmlspecialchars($data['image'] ?? '') ?>" placeholder="/assets/uploads/xyz.webp">
+            <div class="media-actions">
+              <label class="btn small"><input type="file" id="upImage" name="image_file" accept="image/*">Upload</label>
+              <button class="btn small" type="button" data-pick="image">Choose</button>
+              <button class="btn small" type="button" id="clearImage">Clear</button>
+            </div>
+          </div>
+          <div class="drop" id="dropImage">Drag & drop image here</div>
+          <div class="preview" id="prevImage"><?php if(!empty($data['image'])): ?><img src="<?= htmlspecialchars($data['image']) ?>" alt="preview"><?php endif; ?></div>
+        </div>
+
+        <!-- AUDIO -->
+        <div style="margin-top:10px">
+          <label>Audio (optional)</label>
+          <div class="media-block">
+            <input type="text" id="fldAudio" name="audio_url" value="<?= htmlspecialchars($data['audio'] ?? '') ?>" placeholder="/assets/uploads/laugh.mp3">
+            <div class="media-actions">
+              <label class="btn small"><input type="file" id="upAudio" name="audio_file" accept="audio/*">Upload</label>
+              <button class="btn small" type="button" data-pick="audio">Choose</button>
+              <button class="btn small" type="button" id="clearAudio">Clear</button>
+            </div>
+          </div>
+          <div class="drop" id="dropAudio">Drag & drop audio here</div>
+          <div class="preview" id="prevAudio"><?php if(!empty($data['audio'])): ?><audio controls src="<?= htmlspecialchars($data['audio']) ?>"></audio><?php endif; ?></div>
+        </div>
+
+        <!-- VIDEO -->
+        <div style="margin-top:10px">
+          <label>Video (optional)</label>
+          <div class="media-block">
+            <input type="text" id="fldVideo" name="video_url" value="<?= htmlspecialchars($data['video'] ?? '') ?>" placeholder="/assets/uploads/clip.mp4">
+            <div class="media-actions">
+              <label class="btn small"><input type="file" id="upVideo" name="video_file" accept="video/*">Upload</label>
+              <button class="btn small" type="button" data-pick="video">Choose</button>
+              <button class="btn small" type="button" id="clearVideo">Clear</button>
+            </div>
+          </div>
+          <div class="drop" id="dropVideo">Drag & drop video here</div>
+          <div class="preview" id="prevVideo"><?php if(!empty($data['video'])): ?><video controls src="<?= htmlspecialchars($data['video']) ?>"></video><?php endif; ?></div>
+        </div>
+
+        <div class="actions">
+          <?php if ($slug): ?>
+            <button class="btn danger" type="button" id="btnDelete">Delete</button>
+            <button class="btn" type="button" id="btnRename">Rename</button>
+          <?php endif; ?>
+          <button class="btn brand" type="submit">Save changes</button>
+        </div>
+      </form>
+    </section>
   </div>
-</div>
+
+  <!-- Media Picker Modal -->
+  <div class="modal" id="picker">
+    <div class="backdrop"></div>
+    <div class="dialog">
+      <div class="picker-head">
+        <div style="font-weight:700">Media Picker</div>
+        <div>
+          <select id="pickType">
+            <option value="image">Images</option>
+            <option value="audio">Audio</option>
+            <option value="video">Video</option>
+            <option value="all">All</option>
+          </select>
+          <button class="btn small" id="pickClose" type="button">Close</button>
+        </div>
+      </div>
+      <div class="picker-grid" id="pickerGrid"></div>
+    </div>
+  </div>
 
 <script>
-  function deleteEgg(slug){
-    if(!confirm(`Delete "${slug}"? This removes the egg (image/files stay).`)) return;
-    fetch('delete.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'slug='+encodeURIComponent(slug)})
-      .then(r=>r.text()).then(()=>location.href='index.php');
-  }
-  function renameEgg(slug){
-    const ns = prompt('New slug:', slug); if(!ns || ns===slug) return;
-    fetch('rename.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'slug='+encodeURIComponent(slug)+'&new_slug='+encodeURIComponent(ns)})
-      .then(r=>r.text()).then(()=>location.href='index.php?slug='+encodeURIComponent(ns));
-  }
+const $ = s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+function showToast(m){ console.log('[admin]',m); }
 
-  // Image drop/paste
-  const dropImg = document.getElementById('dropImg');
-  const fileImg = document.getElementById('fileImg');
-  const previewImg = document.getElementById('previewImg');
-  if(dropImg && fileImg){
-    dropImg.addEventListener('click', ()=> fileImg.click());
-    dropImg.addEventListener('dragover', e=>{ e.preventDefault(); dropImg.classList.add('drag'); });
-    dropImg.addEventListener('dragleave', ()=> dropImg.classList.remove('drag'));
-    dropImg.addEventListener('drop', e=>{ e.preventDefault(); dropImg.classList.remove('drag'); if(e.dataTransfer.files[0]) handleImg(e.dataTransfer.files[0]); });
-    document.addEventListener('paste', e=>{ const it = e.clipboardData && e.clipboardData.items; if(!it) return; for(const i of it){ if(i.kind==='file' && i.type.startsWith('image/')){ handleImg(i.getAsFile()); break; } } });
-    fileImg.addEventListener('change', ()=>{ if(fileImg.files[0]) handleImg(fileImg.files[0]); });
-  }
-  function handleImg(f){
-    const url = URL.createObjectURL(f);
-    previewImg.innerHTML = '';
-    const img = new Image(); img.onload = ()=> URL.revokeObjectURL(url); img.src=url; img.alt='preview';
-    previewImg.appendChild(img);
-    const dt = new DataTransfer(); dt.items.add(f); fileImg.files = dt.files;
-    const iu = document.getElementById('image_url'); if(iu) iu.value='';
-  }
+/* New egg */
+$('#btnNew')?.addEventListener('click', async ()=>{
+  const title = prompt('Title for the new egg?'); if(!title) return;
+  const fd = new FormData(); fd.set('slug',''); fd.set('title', title); fd.set('caption',''); fd.set('alt',''); fd.set('body',''); fd.set('csrf','<?= htmlspecialchars(csrf_token(), ENT_QUOTES) ?>');
+  try{ const r=await fetch('/admin/save.php',{method:'POST',body:fd}); const j=await r.json(); if(j?.ok&&j.slug){ location.href='?slug='+encodeURIComponent(j.slug); } else alert('Could not create egg.'); }catch{ alert('Error creating egg.'); }
+});
 
-  // Audio drop
-  const dropAudio = document.getElementById('dropAudio');
-  const fileAudio = document.getElementById('fileAudio');
-  const previewAudio = document.getElementById('previewAudio');
-  if(dropAudio && fileAudio){
-    dropAudio.addEventListener('click', ()=> fileAudio.click());
-    dropAudio.addEventListener('dragover', e=>{ e.preventDefault(); dropAudio.classList.add('drag'); });
-    dropAudio.addEventListener('dragleave', ()=> dropAudio.classList.remove('drag'));
-    dropAudio.addEventListener('drop', e=>{ e.preventDefault(); dropAudio.classList.remove('drag'); if(e.dataTransfer.files[0]) handleAudio(e.dataTransfer.files[0]); });
-    fileAudio.addEventListener('change', ()=>{ if(fileAudio.files[0]) handleAudio(fileAudio.files[0]); });
-  }
-  function handleAudio(f){
-    previewAudio.innerHTML = '';
-    const tag = document.createElement('span'); tag.className='pill'; tag.textContent = 'Selected: ' + (f.name || 'audio');
-    previewAudio.appendChild(tag);
-    const dt = new DataTransfer(); dt.items.add(f); fileAudio.files = dt.files;
-    const au = document.getElementById('audio_url'); if(au) au.value='';
-  }
+/* Previews */
+const fldImage=$('#fldImage'), fldAudio=$('#fldAudio'), fldVideo=$('#fldVideo');
+const prevImage=$('#prevImage'), prevAudio=$('#prevAudio'), prevVideo=$('#prevVideo');
+function updatePreview(kind){ if(kind==='image'){ prevImage.innerHTML = fldImage.value ? `<img src="${fldImage.value}" alt="preview">` : ''; }
+  if(kind==='audio'){ prevAudio.innerHTML = fldAudio.value ? `<audio controls src="${fldAudio.value}"></audio>` : ''; }
+  if(kind==='video'){ prevVideo.innerHTML = fldVideo.value ? `<video controls src="${fldVideo.value}"></video>` : ''; } }
+$('#clearImage')?.addEventListener('click', ()=>{ fldImage.value=''; updatePreview('image'); });
+$('#clearAudio')?.addEventListener('click', ()=>{ fldAudio.value=''; updatePreview('audio'); });
+$('#clearVideo')?.addEventListener('click', ()=>{ fldVideo.value=''; updatePreview('video'); });
+fldImage?.addEventListener('change', ()=>updatePreview('image'));
+fldAudio?.addEventListener('change', ()=>updatePreview('audio'));
+fldVideo?.addEventListener('change', ()=>updatePreview('video'));
+$('#upImage')?.addEventListener('change', e=>{ if(e.target.files?.[0]){ fldImage.value=''; updatePreview('image'); }});
+$('#upAudio')?.addEventListener('change', e=>{ if(e.target.files?.[0]){ fldAudio.value=''; updatePreview('audio'); }});
+$('#upVideo')?.addEventListener('change', e=>{ if(e.target.files?.[0]){ fldVideo.value=''; updatePreview('video'); }});
 
-  // Video drop
-  const dropVideo = document.getElementById('dropVideo');
-  const fileVideo = document.getElementById('fileVideo');
-  const previewVideo = document.getElementById('previewVideo');
-  if(dropVideo && fileVideo){
-    dropVideo.addEventListener('click', ()=> fileVideo.click());
-    dropVideo.addEventListener('dragover', e=>{ e.preventDefault(); dropVideo.classList.add('drag'); });
-    dropVideo.addEventListener('dragleave', ()=> dropVideo.classList.remove('drag'));
-    dropVideo.addEventListener('drop', e=>{ e.preventDefault(); dropVideo.classList.remove('drag'); if(e.dataTransfer.files[0]) handleVideo(e.dataTransfer.files[0]); });
-    fileVideo.addEventListener('change', ()=>{ if(fileVideo.files[0]) handleVideo(fileVideo.files[0]); });
-  }
-  function handleVideo(f){
-    previewVideo.innerHTML = '';
-    const tag = document.createElement('span'); tag.className='pill'; tag.textContent = 'Selected: ' + (f.name || 'video');
-    previewVideo.appendChild(tag);
-    const v = document.createElement('video'); v.className='videoDemo'; v.controls = true; v.preload='metadata'; v.playsInline = true; v.src = URL.createObjectURL(f);
-    previewVideo.appendChild(v);
-    const dt = new DataTransfer(); dt.items.add(f); fileVideo.files = dt.files;
-    const vu = document.getElementById('video_url'); if(vu) vu.value='';
-  }
+/* Drag/drop */
+function wireDrop(zoneSel,inputSel){ const zone=$(zoneSel), input=$(inputSel); if(!zone||!input) return;
+  ['dragenter','dragover'].forEach(ev=> zone.addEventListener(ev,e=>{ e.preventDefault(); e.dataTransfer.dropEffect='copy'; zone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev=> zone.addEventListener(ev,e=>{ e.preventDefault(); zone.classList.remove('drag'); }));
+  zone.addEventListener('drop', e=>{ const f=e.dataTransfer.files?.[0]; if(!f) return; input.files=e.dataTransfer.files; input.dispatchEvent(new Event('change',{bubbles:true})); });
+}
+wireDrop('#dropImage','#upImage'); wireDrop('#dropAudio','#upAudio'); wireDrop('#dropVideo','#upVideo');
 
-  // =========================
-  // Media Picker (images, audio, video from /assets/uploads)
-  // =========================
-  let mediaContext = 'image'; // image | audio | video
-  let selectedItem = null;
-  const mediaModal = document.getElementById('mediaModal');
-  const mediaBackdrop = document.getElementById('mediaBackdrop');
-  const mediaClose = document.getElementById('mediaClose');
-  const mediaGrid = document.getElementById('mediaGrid');
-  const mediaUse = document.getElementById('mediaUse');
-  const mediaSearch = document.getElementById('mediaSearch');
-  const tabBtns = document.querySelectorAll('.tabBtn');
-
-  document.getElementById('btnPickImage')?.addEventListener('click', ()=> openMedia('image'));
-  document.getElementById('btnPickAudio')?.addEventListener('click', ()=> openMedia('audio'));
-  document.getElementById('btnPickVideo')?.addEventListener('click', ()=> openMedia('video'));
-
-  mediaBackdrop.addEventListener('click', closeMedia);
-  mediaClose.addEventListener('click', closeMedia);
-  mediaUse.addEventListener('click', useSelected);
-  tabBtns.forEach(b=> b.addEventListener('click', ()=> setTab(b.dataset.tab)));
-  mediaSearch.addEventListener('input', renderMedia);
-
-  let allMedia = []; // [{url, name, type(image|audio|video), size, mtime}]
-  let currentTab = 'all';
-
-  function openMedia(kind){
-    mediaContext = kind;
-    selectedItem = null;
-    mediaUse.disabled = true;
-    mediaSearch.value = '';
-    setTab(kind); // start in the matching tab
-    fetch('media_list.php', {cache:'no-store'})
-      .then(r=>r.json()).then(json=>{
-        allMedia = json.items || [];
-        renderMedia();
-        mediaModal.classList.add('show');
-        mediaModal.setAttribute('aria-hidden','false');
-      }).catch(()=>{ allMedia=[]; renderMedia(); mediaModal.classList.add('show'); });
-  }
-  function closeMedia(){
-    mediaModal.classList.remove('show');
-    mediaModal.setAttribute('aria-hidden','true');
-  }
-  function setTab(tab){
-    currentTab = tab; tabBtns.forEach(b=> b.classList.toggle('active', b.dataset.tab===tab)); renderMedia();
-  }
-  function renderMedia(){
-    const q = mediaSearch.value.trim().toLowerCase();
-    const list = allMedia.filter(it=>{
-      if(currentTab!=='all' && it.type!==currentTab) return false;
-      if(q && !it.name.toLowerCase().includes(q)) return false;
-      // When tab is "all", still bias to the context so you don't see everything unrelated
-      if(currentTab==='all' && it.type!==mediaContext) return false;
-      return true;
-    }).sort((a,b)=> (b.mtime||0)-(a.mtime||0));
-
-    mediaGrid.innerHTML = '';
-    for(const it of list){
-      const tile = document.createElement('div'); tile.className='tile'; tile.dataset.url = it.url; tile.dataset.type = it.type;
-      if(it.type==='image'){
-        tile.innerHTML = `<div class="thumb"><img src="${it.url}" alt=""></div><div class="meta">${escapeHtml(it.name)}</div>`;
-      } else if(it.type==='audio'){
-        tile.innerHTML = `<div class="thumb"><span>🎵</span></div><div class="meta">${escapeHtml(it.name)}</div><audio class="audioDemo" controls src="${it.url}"></audio>`;
-      } else {
-        tile.innerHTML = `<div class="thumb"><video class="videoDemo" preload="metadata" src="${it.url}" muted playsinline></video></div><div class="meta">${escapeHtml(it.name)}</div>`;
-      }
-      tile.addEventListener('click', ()=>{
-        [...mediaGrid.children].forEach(c=> c.style.outline='none');
-        tile.style.outline = '2px solid var(--brand)';
-        selectedItem = it; mediaUse.disabled = false;
-      });
-      mediaGrid.appendChild(tile);
+/* Media picker */
+let pickTarget=null; const picker=$('#picker'), pickerGrid=$('#pickerGrid'), pickType=$('#pickType');
+$$('[data-pick]').forEach(btn=> btn.addEventListener('click', ()=>{ pickTarget=btn.getAttribute('data-pick'); picker.classList.add('show'); loadMedia(pickTarget);} ));
+$('#pickClose')?.addEventListener('click', ()=> picker.classList.remove('show'));
+$('.modal .backdrop')?.addEventListener('click', ()=> picker.classList.remove('show'));
+pickType?.addEventListener('change', ()=> loadMedia(pickType.value));
+async function loadMedia(kind){
+  pickerGrid.innerHTML='<div class="muted">Loading...</div>';
+  try{
+    const r=await fetch('/admin/media_list.php?kind='+encodeURIComponent(kind)); const j=await r.json(); const items=j?.files||[];
+    if(!items.length){ pickerGrid.innerHTML='<div class="muted">Nothing here yet.</div>'; return; }
+    pickerGrid.innerHTML=''; for(const it of items){
+      const type=it.type||'file', url=it.url, name=it.name||url.split('/').pop();
+      const t=document.createElement('div'); t.className='tile';
+      t.innerHTML=`<div class="thumb">${type==='image'?`<img src="${url}" alt="">`:(type==='audio'?`<div class="muted">🎵 Audio</div>`:(type==='video'?`<div class="muted">🎬 Video</div>`:`<div class="muted">File</div>`))}</div><div class="meta"><span title="${name}">${name}</span><span>${type}</span></div>`;
+      t.addEventListener('click', ()=>{ if(pickTarget==='image'){ fldImage.value=url; updatePreview('image'); }
+        if(pickTarget==='audio'){ fldAudio.value=url; updatePreview('audio'); }
+        if(pickTarget==='video'){ fldVideo.value=url; updatePreview('video'); }
+        picker.classList.remove('show'); });
+      pickerGrid.appendChild(t);
     }
-    if(!list.length){
-      const empty = document.createElement('div'); empty.className='muted'; empty.textContent = 'No files found.'; mediaGrid.appendChild(empty);
-    }
-  }
-  function useSelected(){
-    if(!selectedItem) return;
-    if(mediaContext==='image'){
-      document.getElementById('image_url').value = selectedItem.url;
-      previewImg.innerHTML = `<img src="${selectedItem.url}" alt="preview">`;
-      if(fileImg){ fileImg.value=''; }
-      document.getElementById('currentImagePath')?.setAttribute('value', selectedItem.url);
-    } else if(mediaContext==='audio'){
-      document.getElementById('audio_url').value = selectedItem.url;
-      previewAudio.innerHTML = `<span class="pill">Selected: ${escapeHtml(selectedItem.name)}</span><audio class="audioDemo" controls src="${selectedItem.url}"></audio>`;
-      if(fileAudio){ fileAudio.value=''; }
-    } else if(mediaContext==='video'){
-      document.getElementById('video_url').value = selectedItem.url;
-      previewVideo.innerHTML = `<span class="pill">Selected: ${escapeHtml(selectedItem.name)}</span><video class="videoDemo" controls preload="metadata" playsinline src="${selectedItem.url}"></video>`;
-      if(fileVideo){ fileVideo.value=''; }
-    }
-    closeMedia();
-  }
-  function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
-</script>
-</body></html>
+  }catch{ pickerGrid.innerHTML='<div class="danger">Failed to load uploads.</div>'; }
+}
+
+/* Save */
+$('#eggForm')?.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const fd=new FormData(e.currentTarget);
+  try{ const r=await fetch('/admin/save.php',{method:'POST',body:fd}); const j=await r.json();
+    if(j?.ok){ const newSlug=j.slug || fd.get('slug'); showToast('Saved ✓'); if(newSlug && newSlug!=='<?= htmlspecialchars($slug) ?>'){ location.href='?slug='+encodeURIComponent(newSlug); } else { location.reload(); } }
+    else alert('Save failed.');
+  }catch{ alert('Error saving.'); }
+});
+
+/* Rename */
+$('#btnRename')?.addEventListener('click', async ()=>{
+  const current='<?= htmlspecialchars($slug) ?>'; const next=prompt('New slug (lowercase, spaces → dashes):', current);
+  if(!next || next===current) return;
+  const body = new URLSearchParams({ slug: current, new_slug: next, csrf: '<?= htmlspecialchars(csrf_token(), ENT_QUOTES) ?>' });
+  try{ const r=await fetch('/admin/rename.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body}); const j=await r.json(); if(j?.ok){ location.href='?slug='+encodeURIComponent(j.slug||next); } else alert(j.error||'Rename failed.'); }catch{ alert('Rename error.'); }
+});
+
+/* Delete */
+$('#btnDelete')?.addEventListener('click', async ()=>{
+  const s='
