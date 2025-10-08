@@ -22,7 +22,7 @@ $current = $slug ? load_egg($slug) : null;
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Egg Manager — <?= htmlspecialchars($SITE_NAME) ?></title>
 <style>
-  :root{ --bg:#0f1115; --card:#141823; --line:#23283a; --fg:#f1f1f1; --muted:#a9afbf; --brand:#ffcc00; }
+  :root{ --bg:#0f1115; --card:#141823; --line:#23283a; --fg:#f1f1f1; --muted:#a9afbf; --brand:#ffcc00; --bezier:cubic-bezier(.22,.61,.36,1) }
   *{box-sizing:border-box}
   body{margin:0; font-family:system-ui,Segoe UI,Roboto,Inter,Arial; background:var(--bg); color:var(--fg)}
   header,footer{padding:12px 16px; background:#101421; border-bottom:1px solid var(--line)}
@@ -32,7 +32,8 @@ $current = $slug ? load_egg($slug) : null;
   input,textarea{width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:#0c0f19; color:var(--fg)}
   label{font-weight:600; font-size:13px}
   .row{display:grid; gap:10px; grid-template-columns:1fr 1fr}
-  button{padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:#1a2030; color:var(--fg); cursor:pointer}
+  button{padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:#1a2030; color:var(--fg); cursor:pointer; transition:transform .18s var(--bezier)}
+  button:hover{transform:translateY(-1px)}
   ul{list-style:none; padding:0; margin:0}
   li{margin:0 0 8px; display:flex; align-items:center; justify-content:space-between; gap:8px}
   .muted{color:var(--muted); font-size:12px}
@@ -44,6 +45,25 @@ $current = $slug ? load_egg($slug) : null;
   .pill{display:inline-block; padding:2px 8px; border:1px solid var(--line); border-radius:999px; font-size:12px; color:var(--muted)}
   .help{font-size:12px; color:var(--muted); margin-top:6px}
   .sectionTitle{margin:14px 0 6px; font-weight:700; color:#e9e9e9}
+
+  /* Media Picker modal */
+  .modal{position:fixed; inset:0; display:grid; place-items:center; z-index:1000; pointer-events:none; opacity:0; visibility:hidden; transition:opacity .25s var(--bezier), visibility 0s linear .25s}
+  .modal.show{pointer-events:auto; opacity:1; visibility:visible; transition:opacity .25s var(--bezier), visibility 0s}
+  .backdrop{position:absolute; inset:0; background:rgba(0,0,0,.55); backdrop-filter: blur(2px); }
+  .dialog{position:relative; width:min(92vw,1000px); height:min(86vh,700px); background:#0b0f1a; border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 28px 80px rgba(0,0,0,.6)}
+  .dialog header{display:flex; align-items:center; gap:10px; padding:10px; border-bottom:1px solid var(--line); background:#0f1423}
+  .dialog header input{flex:1}
+  .tabs{display:flex; gap:6px}
+  .tabs button{padding:8px 12px}
+  .tabs .active{background:#1a2032}
+  .grid{flex:1; overflow:auto; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(160px,1fr)); gap:12px}
+  .tile{border:1px solid var(--line); border-radius:10px; background:#0f1423; padding:8px; cursor:pointer; transition:transform .18s var(--bezier), border-color .2s}
+  .tile:hover{transform:translateY(-2px); border-color:#3d4670}
+  .thumb{height:120px; background:#0b0f1a; border-radius:8px; display:grid; place-items:center; overflow:hidden; margin-bottom:8px}
+  .thumb img{max-width:100%; max-height:100%; display:block}
+  .meta{font-size:12px; color:#cfd3df; word-break:break-all}
+  .audioDemo{width:100%}
+  .dialog footer{padding:10px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:8px; background:#0f1423}
 </style></head>
 <body>
 <header>
@@ -118,7 +138,7 @@ $current = $slug ? load_egg($slug) : null;
             </div>
             <div>
               <label>Current Image</label>
-              <input value="<?=htmlspecialchars($current['image'] ?? '')?>" disabled>
+              <input id="currentImagePath" value="<?=htmlspecialchars($current['image'] ?? '')?>" disabled>
             </div>
           </div>
 
@@ -146,12 +166,15 @@ $current = $slug ? load_egg($slug) : null;
             <input type="file" id="fileImg" name="image" accept="image/*" style="display:none">
             <div class="preview" id="previewImg"><?php if(!empty($current['image'])): ?><img src="<?=htmlspecialchars($current['image'])?>" alt="current image"/><?php endif; ?></div>
             <p class="help">Auto-converts to WebP when supported by PHP GD.</p>
+            <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
+              <button type="button" id="btnPickImage">📂 Choose from uploads</button>
+            </div>
           </div>
 
           <div class="row">
             <div>
               <label>OR Image URL</label>
-              <input name="image_url" placeholder="https://…">
+              <input name="image_url" id="image_url" placeholder="https://…">
             </div>
             <div></div>
           </div>
@@ -160,14 +183,22 @@ $current = $slug ? load_egg($slug) : null;
           <div class="drop" id="dropAudio">
             <p><strong>Drag & drop</strong> an audio file here, or <strong>click</strong> to choose one.</p>
             <input type="file" id="fileAudio" name="audio" accept=".mp3,.m4a,.aac,.wav,.ogg,.oga,.webm" style="display:none">
-            <div class="preview" id="previewAudio"><?php if(!empty($current['audio'])): ?><span class="pill">Current: <?=htmlspecialchars(basename($current['audio']))?></span><?php endif; ?></div>
+            <div class="preview" id="previewAudio">
+              <?php if(!empty($current['audio'])): ?>
+                <span class="pill">Current: <?=htmlspecialchars(basename($current['audio']))?></span>
+                <audio class="audioDemo" controls src="<?=htmlspecialchars($current['audio'])?>"></audio>
+              <?php endif; ?>
+            </div>
             <p class="help">Supported: mp3, m4a/aac, wav, ogg/oga, webm. No transcoding.</p>
+            <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
+              <button type="button" id="btnPickAudio">📂 Choose from uploads</button>
+            </div>
           </div>
 
           <div class="row">
             <div>
               <label>OR Audio URL</label>
-              <input name="audio_url" placeholder="https://…/sound.mp3">
+              <input name="audio_url" id="audio_url" placeholder="https://…/sound.mp3">
             </div>
             <div style="display:flex;align-items:flex-end;gap:8px;">
               <button type="submit">Save</button>
@@ -181,6 +212,27 @@ $current = $slug ? load_egg($slug) : null;
 <?php endif; ?>
 
 <footer><small>© <?=date('Y')?> <?= htmlspecialchars($SITE_DOMAIN ?: $SITE_NAME) ?></small></footer>
+
+<!-- Media Picker Modal -->
+<div class="modal" id="mediaModal" aria-hidden="true">
+  <div class="backdrop" id="mediaBackdrop"></div>
+  <div class="dialog" role="dialog" aria-label="Choose a file">
+    <header>
+      <strong style="margin-right:8px">Media</strong>
+      <div class="tabs">
+        <button type="button" data-tab="all" class="tabBtn active">All</button>
+        <button type="button" data-tab="image" class="tabBtn">Images</button>
+        <button type="button" data-tab="audio" class="tabBtn">Audio</button>
+      </div>
+      <input id="mediaSearch" placeholder="Search by name…">
+      <button type="button" id="mediaClose">Close</button>
+    </header>
+    <div class="grid" id="mediaGrid"></div>
+    <footer>
+      <button type="button" id="mediaUse" disabled>Use selected</button>
+    </footer>
+  </div>
+</div>
 
 <script>
   function deleteEgg(slug){
@@ -212,6 +264,8 @@ $current = $slug ? load_egg($slug) : null;
     const img = new Image(); img.onload = ()=> URL.revokeObjectURL(url); img.src=url; img.alt='preview';
     previewImg.appendChild(img);
     const dt = new DataTransfer(); dt.items.add(f); fileImg.files = dt.files;
+    // clear URL field if we selected a file
+    const iu = document.getElementById('image_url'); if(iu) iu.value='';
   }
 
   // Audio drop
@@ -230,6 +284,115 @@ $current = $slug ? load_egg($slug) : null;
     const tag = document.createElement('span'); tag.className='pill'; tag.textContent = 'Selected: ' + (f.name || 'audio');
     previewAudio.appendChild(tag);
     const dt = new DataTransfer(); dt.items.add(f); fileAudio.files = dt.files;
+    // clear URL field if we selected a file
+    const au = document.getElementById('audio_url'); if(au) au.value='';
   }
+
+  // =========================
+  // Media Picker (images & audio from /assets/uploads)
+  // =========================
+  let mediaContext = 'image'; // which field are we picking for
+  let selectedItem = null;
+  const mediaModal = document.getElementById('mediaModal');
+  const mediaBackdrop = document.getElementById('mediaBackdrop');
+  const mediaClose = document.getElementById('mediaClose');
+  const mediaGrid = document.getElementById('mediaGrid');
+  const mediaUse = document.getElementById('mediaUse');
+  const mediaSearch = document.getElementById('mediaSearch');
+  const tabBtns = document.querySelectorAll('.tabBtn');
+
+  document.getElementById('btnPickImage')?.addEventListener('click', ()=> openMedia('image'));
+  document.getElementById('btnPickAudio')?.addEventListener('click', ()=> openMedia('audio'));
+
+  mediaBackdrop.addEventListener('click', closeMedia);
+  mediaClose.addEventListener('click', closeMedia);
+  mediaUse.addEventListener('click', useSelected);
+  tabBtns.forEach(b=> b.addEventListener('click', ()=> setTab(b.dataset.tab)));
+  mediaSearch.addEventListener('input', renderMedia);
+
+  let allMedia = []; // [{url, name, type, size, mtime}]
+  let currentTab = 'all';
+
+  function openMedia(kind){
+    mediaContext = kind; // 'image' or 'audio'
+    selectedItem = null;
+    mediaUse.disabled = true;
+    mediaSearch.value = '';
+    setTab(kind === 'audio' ? 'audio' : 'image'); // prefilter to sensible tab
+    fetch('media_list.php', {cache:'no-store'})
+      .then(r=>r.json()).then(json=>{
+        allMedia = json.items || [];
+        renderMedia();
+        mediaModal.classList.add('show');
+        mediaModal.setAttribute('aria-hidden','false');
+      }).catch(()=>{ allMedia=[]; renderMedia(); mediaModal.classList.add('show'); });
+  }
+  function closeMedia(){
+    mediaModal.classList.remove('show');
+    mediaModal.setAttribute('aria-hidden','true');
+  }
+  function setTab(tab){
+    currentTab = tab; tabBtns.forEach(b=> b.classList.toggle('active', b.dataset.tab===tab)); renderMedia();
+  }
+  function renderMedia(){
+    const q = mediaSearch.value.trim().toLowerCase();
+    const list = allMedia.filter(it=>{
+      if(currentTab!=='all' && it.type!==currentTab) return false;
+      if(q && !it.name.toLowerCase().includes(q)) return false;
+      // If we're picking for image/audio, hide the other type unless "all" is chosen
+      if(mediaContext==='image' && currentTab==='all' && it.type!=='image') return false;
+      if(mediaContext==='audio' && currentTab==='all' && it.type!=='audio') return false;
+      return true;
+    });
+    // newest first
+    list.sort((a,b)=> (b.mtime||0)-(a.mtime||0));
+
+    mediaGrid.innerHTML = '';
+    for(const it of list){
+      const tile = document.createElement('div'); tile.className='tile'; tile.dataset.url = it.url; tile.dataset.type = it.type;
+      if(it.type==='image'){
+        tile.innerHTML = `
+          <div class="thumb"><img src="${it.url}" alt=""></div>
+          <div class="meta">${escapeHtml(it.name)}</div>`;
+      } else {
+        tile.innerHTML = `
+          <div class="thumb"><span>🎵</span></div>
+          <div class="meta">${escapeHtml(it.name)}</div>
+          <audio class="audioDemo" controls src="${it.url}"></audio>`;
+      }
+      tile.addEventListener('click', ()=>{
+        [...mediaGrid.children].forEach(c=> c.style.outline='none');
+        tile.style.outline = '2px solid var(--brand)';
+        selectedItem = it; mediaUse.disabled = false;
+      });
+      mediaGrid.appendChild(tile);
+    }
+    if(!list.length){
+      const empty = document.createElement('div');
+      empty.className='muted';
+      empty.textContent = 'No files found.';
+      mediaGrid.appendChild(empty);
+    }
+  }
+  function useSelected(){
+    if(!selectedItem) return;
+    if(mediaContext==='image'){
+      // put into URL field & preview
+      const iu = document.getElementById('image_url'); if(iu){ iu.value = selectedItem.url; }
+      previewImg.innerHTML = `<img src="${selectedItem.url}" alt="preview">`;
+      // clear file input
+      if(fileImg){ fileImg.value=''; }
+      document.getElementById('currentImagePath')?.setAttribute('value', selectedItem.url);
+    } else if(mediaContext==='audio'){
+      const au = document.getElementById('audio_url'); if(au){ au.value = selectedItem.url; }
+      previewAudio.innerHTML = `
+        <span class="pill">Selected: ${escapeHtml(selectedItem.name)}</span>
+        <audio class="audioDemo" controls src="${selectedItem.url}"></audio>`;
+      if(fileAudio){ fileAudio.value=''; }
+    }
+    closeMedia();
+  }
+  function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+
 </script>
 </body></html>
