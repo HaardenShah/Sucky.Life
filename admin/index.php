@@ -24,7 +24,7 @@ $current = $slug ? load_egg($slug) : null;
 <style>
   :root{ --bg:#0f1115; --card:#141823; --line:#23283a; --fg:#f1f1f1; --muted:#a9afbf; --brand:#ffcc00; --bezier:cubic-bezier(.22,.61,.36,1) }
   *{box-sizing:border-box}
-  body{margin:0; font-family:system-ui,Segoe UI,Roboto,Inter,Arial; background:var(--bg); color:var(--fg)}
+  body{margin:0; font-family:system-ui,Segoe UI,Roboto,Inter,Arial; background:#0f1115; color:var(--fg)}
   header,footer{padding:12px 16px; background:#101421; border-bottom:1px solid var(--line)}
   main{display:grid; grid-template-columns:320px 1fr; gap:18px; padding:18px}
   .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px}
@@ -42,6 +42,7 @@ $current = $slug ? load_egg($slug) : null;
   .drop.drag{background:#0e1424; border-color:#6573a3}
   .preview{margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
   .preview img{max-height:90px; border-radius:8px; border:1px solid var(--line)}
+  .preview video{max-height:140px; border-radius:8px; border:1px solid var(--line)}
   .pill{display:inline-block; padding:2px 8px; border:1px solid var(--line); border-radius:999px; font-size:12px; color:var(--muted)}
   .help{font-size:12px; color:var(--muted); margin-top:6px}
   .sectionTitle{margin:14px 0 6px; font-weight:700; color:#e9e9e9}
@@ -50,19 +51,19 @@ $current = $slug ? load_egg($slug) : null;
   .modal{position:fixed; inset:0; display:grid; place-items:center; z-index:1000; pointer-events:none; opacity:0; visibility:hidden; transition:opacity .25s var(--bezier), visibility 0s linear .25s}
   .modal.show{pointer-events:auto; opacity:1; visibility:visible; transition:opacity .25s var(--bezier), visibility 0s}
   .backdrop{position:absolute; inset:0; background:rgba(0,0,0,.55); backdrop-filter: blur(2px); }
-  .dialog{position:relative; width:min(92vw,1000px); height:min(86vh,700px); background:#0b0f1a; border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 28px 80px rgba(0,0,0,.6)}
+  .dialog{position:relative; width:min(92vw,1100px); height:min(86vh,720px); background:#0b0f1a; border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 28px 80px rgba(0,0,0,.6)}
   .dialog header{display:flex; align-items:center; gap:10px; padding:10px; border-bottom:1px solid var(--line); background:#0f1423}
   .dialog header input{flex:1}
   .tabs{display:flex; gap:6px}
   .tabs button{padding:8px 12px}
   .tabs .active{background:#1a2032}
-  .grid{flex:1; overflow:auto; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(160px,1fr)); gap:12px}
+  .grid{flex:1; overflow:auto; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:12px}
   .tile{border:1px solid var(--line); border-radius:10px; background:#0f1423; padding:8px; cursor:pointer; transition:transform .18s var(--bezier), border-color .2s}
   .tile:hover{transform:translateY(-2px); border-color:#3d4670}
-  .thumb{height:120px; background:#0b0f1a; border-radius:8px; display:grid; place-items:center; overflow:hidden; margin-bottom:8px}
-  .thumb img{max-width:100%; max-height:100%; display:block}
+  .thumb{height:130px; background:#0b0f1a; border-radius:8px; display:grid; place-items:center; overflow:hidden; margin-bottom:8px}
+  .thumb img,.thumb video{max-width:100%; max-height:100%; display:block}
   .meta{font-size:12px; color:#cfd3df; word-break:break-all}
-  .audioDemo{width:100%}
+  .audioDemo,.videoDemo{width:100%}
   .dialog footer{padding:10px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:8px; background:#0f1423}
 </style></head>
 <body>
@@ -200,6 +201,30 @@ $current = $slug ? load_egg($slug) : null;
               <label>OR Audio URL</label>
               <input name="audio_url" id="audio_url" placeholder="https://…/sound.mp3">
             </div>
+            <div></div>
+          </div>
+
+          <div class="sectionTitle">Video (optional)</div>
+          <div class="drop" id="dropVideo">
+            <p><strong>Drag & drop</strong> a video here, or <strong>click</strong> to choose one.</p>
+            <input type="file" id="fileVideo" name="video" accept=".mp4,.webm,.ogg,.ogv,.mov" style="display:none">
+            <div class="preview" id="previewVideo">
+              <?php if(!empty($current['video'])): ?>
+                <span class="pill">Current: <?=htmlspecialchars(basename($current['video']))?></span>
+                <video class="videoDemo" controls preload="metadata" playsinline src="<?=htmlspecialchars($current['video'])?>"></video>
+              <?php endif; ?>
+            </div>
+            <p class="help">Best compatibility: <strong>MP4 (H.264/AAC)</strong> or <strong>WebM</strong>. No transcoding is performed.</p>
+            <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
+              <button type="button" id="btnPickVideo">📂 Choose from uploads</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>OR Video URL</label>
+              <input name="video_url" id="video_url" placeholder="https://…/clip.mp4">
+            </div>
             <div style="display:flex;align-items:flex-end;gap:8px;">
               <button type="submit">Save</button>
               <a class="muted" target="_blank" href="../eggs/egg.php?slug=<?=urlencode($slug)?>">Preview →</a>
@@ -223,6 +248,7 @@ $current = $slug ? load_egg($slug) : null;
         <button type="button" data-tab="all" class="tabBtn active">All</button>
         <button type="button" data-tab="image" class="tabBtn">Images</button>
         <button type="button" data-tab="audio" class="tabBtn">Audio</button>
+        <button type="button" data-tab="video" class="tabBtn">Videos</button>
       </div>
       <input id="mediaSearch" placeholder="Search by name…">
       <button type="button" id="mediaClose">Close</button>
@@ -236,7 +262,7 @@ $current = $slug ? load_egg($slug) : null;
 
 <script>
   function deleteEgg(slug){
-    if(!confirm(`Delete "${slug}"? This removes the egg (image files stay).`)) return;
+    if(!confirm(`Delete "${slug}"? This removes the egg (image/files stay).`)) return;
     fetch('delete.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'slug='+encodeURIComponent(slug)})
       .then(r=>r.text()).then(()=>location.href='index.php');
   }
@@ -264,7 +290,6 @@ $current = $slug ? load_egg($slug) : null;
     const img = new Image(); img.onload = ()=> URL.revokeObjectURL(url); img.src=url; img.alt='preview';
     previewImg.appendChild(img);
     const dt = new DataTransfer(); dt.items.add(f); fileImg.files = dt.files;
-    // clear URL field if we selected a file
     const iu = document.getElementById('image_url'); if(iu) iu.value='';
   }
 
@@ -284,14 +309,34 @@ $current = $slug ? load_egg($slug) : null;
     const tag = document.createElement('span'); tag.className='pill'; tag.textContent = 'Selected: ' + (f.name || 'audio');
     previewAudio.appendChild(tag);
     const dt = new DataTransfer(); dt.items.add(f); fileAudio.files = dt.files;
-    // clear URL field if we selected a file
     const au = document.getElementById('audio_url'); if(au) au.value='';
   }
 
+  // Video drop
+  const dropVideo = document.getElementById('dropVideo');
+  const fileVideo = document.getElementById('fileVideo');
+  const previewVideo = document.getElementById('previewVideo');
+  if(dropVideo && fileVideo){
+    dropVideo.addEventListener('click', ()=> fileVideo.click());
+    dropVideo.addEventListener('dragover', e=>{ e.preventDefault(); dropVideo.classList.add('drag'); });
+    dropVideo.addEventListener('dragleave', ()=> dropVideo.classList.remove('drag'));
+    dropVideo.addEventListener('drop', e=>{ e.preventDefault(); dropVideo.classList.remove('drag'); if(e.dataTransfer.files[0]) handleVideo(e.dataTransfer.files[0]); });
+    fileVideo.addEventListener('change', ()=>{ if(fileVideo.files[0]) handleVideo(fileVideo.files[0]); });
+  }
+  function handleVideo(f){
+    previewVideo.innerHTML = '';
+    const tag = document.createElement('span'); tag.className='pill'; tag.textContent = 'Selected: ' + (f.name || 'video');
+    previewVideo.appendChild(tag);
+    const v = document.createElement('video'); v.className='videoDemo'; v.controls = true; v.preload='metadata'; v.playsInline = true; v.src = URL.createObjectURL(f);
+    previewVideo.appendChild(v);
+    const dt = new DataTransfer(); dt.items.add(f); fileVideo.files = dt.files;
+    const vu = document.getElementById('video_url'); if(vu) vu.value='';
+  }
+
   // =========================
-  // Media Picker (images & audio from /assets/uploads)
+  // Media Picker (images, audio, video from /assets/uploads)
   // =========================
-  let mediaContext = 'image'; // which field are we picking for
+  let mediaContext = 'image'; // image | audio | video
   let selectedItem = null;
   const mediaModal = document.getElementById('mediaModal');
   const mediaBackdrop = document.getElementById('mediaBackdrop');
@@ -303,6 +348,7 @@ $current = $slug ? load_egg($slug) : null;
 
   document.getElementById('btnPickImage')?.addEventListener('click', ()=> openMedia('image'));
   document.getElementById('btnPickAudio')?.addEventListener('click', ()=> openMedia('audio'));
+  document.getElementById('btnPickVideo')?.addEventListener('click', ()=> openMedia('video'));
 
   mediaBackdrop.addEventListener('click', closeMedia);
   mediaClose.addEventListener('click', closeMedia);
@@ -310,15 +356,15 @@ $current = $slug ? load_egg($slug) : null;
   tabBtns.forEach(b=> b.addEventListener('click', ()=> setTab(b.dataset.tab)));
   mediaSearch.addEventListener('input', renderMedia);
 
-  let allMedia = []; // [{url, name, type, size, mtime}]
+  let allMedia = []; // [{url, name, type(image|audio|video), size, mtime}]
   let currentTab = 'all';
 
   function openMedia(kind){
-    mediaContext = kind; // 'image' or 'audio'
+    mediaContext = kind;
     selectedItem = null;
     mediaUse.disabled = true;
     mediaSearch.value = '';
-    setTab(kind === 'audio' ? 'audio' : 'image'); // prefilter to sensible tab
+    setTab(kind); // start in the matching tab
     fetch('media_list.php', {cache:'no-store'})
       .then(r=>r.json()).then(json=>{
         allMedia = json.items || [];
@@ -339,26 +385,20 @@ $current = $slug ? load_egg($slug) : null;
     const list = allMedia.filter(it=>{
       if(currentTab!=='all' && it.type!==currentTab) return false;
       if(q && !it.name.toLowerCase().includes(q)) return false;
-      // If we're picking for image/audio, hide the other type unless "all" is chosen
-      if(mediaContext==='image' && currentTab==='all' && it.type!=='image') return false;
-      if(mediaContext==='audio' && currentTab==='all' && it.type!=='audio') return false;
+      // When tab is "all", still bias to the context so you don't see everything unrelated
+      if(currentTab==='all' && it.type!==mediaContext) return false;
       return true;
-    });
-    // newest first
-    list.sort((a,b)=> (b.mtime||0)-(a.mtime||0));
+    }).sort((a,b)=> (b.mtime||0)-(a.mtime||0));
 
     mediaGrid.innerHTML = '';
     for(const it of list){
       const tile = document.createElement('div'); tile.className='tile'; tile.dataset.url = it.url; tile.dataset.type = it.type;
       if(it.type==='image'){
-        tile.innerHTML = `
-          <div class="thumb"><img src="${it.url}" alt=""></div>
-          <div class="meta">${escapeHtml(it.name)}</div>`;
+        tile.innerHTML = `<div class="thumb"><img src="${it.url}" alt=""></div><div class="meta">${escapeHtml(it.name)}</div>`;
+      } else if(it.type==='audio'){
+        tile.innerHTML = `<div class="thumb"><span>🎵</span></div><div class="meta">${escapeHtml(it.name)}</div><audio class="audioDemo" controls src="${it.url}"></audio>`;
       } else {
-        tile.innerHTML = `
-          <div class="thumb"><span>🎵</span></div>
-          <div class="meta">${escapeHtml(it.name)}</div>
-          <audio class="audioDemo" controls src="${it.url}"></audio>`;
+        tile.innerHTML = `<div class="thumb"><video class="videoDemo" preload="metadata" src="${it.url}" muted playsinline></video></div><div class="meta">${escapeHtml(it.name)}</div>`;
       }
       tile.addEventListener('click', ()=>{
         [...mediaGrid.children].forEach(c=> c.style.outline='none');
@@ -368,31 +408,27 @@ $current = $slug ? load_egg($slug) : null;
       mediaGrid.appendChild(tile);
     }
     if(!list.length){
-      const empty = document.createElement('div');
-      empty.className='muted';
-      empty.textContent = 'No files found.';
-      mediaGrid.appendChild(empty);
+      const empty = document.createElement('div'); empty.className='muted'; empty.textContent = 'No files found.'; mediaGrid.appendChild(empty);
     }
   }
   function useSelected(){
     if(!selectedItem) return;
     if(mediaContext==='image'){
-      // put into URL field & preview
-      const iu = document.getElementById('image_url'); if(iu){ iu.value = selectedItem.url; }
+      document.getElementById('image_url').value = selectedItem.url;
       previewImg.innerHTML = `<img src="${selectedItem.url}" alt="preview">`;
-      // clear file input
       if(fileImg){ fileImg.value=''; }
       document.getElementById('currentImagePath')?.setAttribute('value', selectedItem.url);
     } else if(mediaContext==='audio'){
-      const au = document.getElementById('audio_url'); if(au){ au.value = selectedItem.url; }
-      previewAudio.innerHTML = `
-        <span class="pill">Selected: ${escapeHtml(selectedItem.name)}</span>
-        <audio class="audioDemo" controls src="${selectedItem.url}"></audio>`;
+      document.getElementById('audio_url').value = selectedItem.url;
+      previewAudio.innerHTML = `<span class="pill">Selected: ${escapeHtml(selectedItem.name)}</span><audio class="audioDemo" controls src="${selectedItem.url}"></audio>`;
       if(fileAudio){ fileAudio.value=''; }
+    } else if(mediaContext==='video'){
+      document.getElementById('video_url').value = selectedItem.url;
+      previewVideo.innerHTML = `<span class="pill">Selected: ${escapeHtml(selectedItem.name)}</span><video class="videoDemo" controls preload="metadata" playsinline src="${selectedItem.url}"></video>`;
+      if(fileVideo){ fileVideo.value=''; }
     }
     closeMedia();
   }
   function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
-
 </script>
 </body></html>

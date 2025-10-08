@@ -11,25 +11,34 @@ $egg = json_decode(file_get_contents($file), true) ?: [];
 <title><?= htmlspecialchars($egg['title'] ?? $slug) ?></title>
 <style>
   body { margin:0; font-family: system-ui, Segoe UI, Roboto, Inter, Arial; color:#f5f5f5; background:#0b0b0b; display:grid; place-items:center; padding:18px; }
-  .card { max-width: 820px; border:1px solid rgba(255,255,255,.15); border-radius:16px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.5) }
+  .card { max-width: 900px; border:1px solid rgba(255,255,255,.15); border-radius:16px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.5) }
   img, video { display:block; width:100%; height:auto; background:#0b0b0b }
   figcaption { padding:14px 16px; font-size:15px; color:#ddd; background:rgba(255,255,255,.03) }
   .body { padding:14px 16px; font-size:15px; color:#dcdcdc; line-height:1.5; background:#0f0f0f}
-  .audio { padding:12px 16px; background:#0f0f0f; border-top:1px solid rgba(255,255,255,.12) }
-  audio { width:100%; outline:none }
+  .audio, .video { padding:12px 16px; background:#0f0f0f; border-top:1px solid rgba(255,255,255,.12) }
+  audio, video { width:100%; outline:none }
   a { color:#ffcc00 }
 </style></head>
 <body>
   <figure class="card">
+    <?php if(!empty($egg['video'])): ?>
+      <div class="video">
+        <video controls preload="metadata" playsinline src="<?= htmlspecialchars($egg['video']) ?>"></video>
+      </div>
+    <?php endif; ?>
+
     <?php if(!empty($egg['image'])): ?>
       <img src="<?= htmlspecialchars($egg['image']) ?>" alt="<?= htmlspecialchars($egg['alt'] ?? '') ?>"/>
     <?php endif; ?>
+
     <?php if(!empty($egg['caption'])): ?>
       <figcaption><?= $egg['caption'] ?></figcaption>
     <?php endif; ?>
+
     <?php if(!empty($egg['body'])): ?>
       <div class="body"><?= $egg['body'] ?></div>
     <?php endif; ?>
+
     <?php if(!empty($egg['audio'])): ?>
       <div class="audio">
         <audio controls preload="metadata" src="<?= htmlspecialchars($egg['audio']) ?>"></audio>

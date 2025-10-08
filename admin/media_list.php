@@ -10,8 +10,9 @@ if(empty($_SESSION['authed'])){
 }
 
 $items = [];
-$allowed_img = ['jpg','jpeg','png','gif','webp'];
+$allowed_img   = ['jpg','jpeg','png','gif','webp'];
 $allowed_audio = ['mp3','m4a','aac','wav','ogg','oga','webm'];
+$allowed_video = ['mp4','webm','ogg','ogv','mov','m4v'];
 
 $dir = $UPLOAD_DIR;
 $base = $BASE_UPLOAD_URL;
@@ -22,7 +23,11 @@ if(is_dir($dir)){
     $path = $dir . '/' . $f;
     if(!is_file($path)) continue;
     $ext = strtolower(pathinfo($f, PATHINFO_EXTENSION));
-    $type = in_array($ext, $allowed_img) ? 'image' : (in_array($ext, $allowed_audio) ? 'audio' : null);
+
+    $type = null;
+    if(in_array($ext, $allowed_img))   $type = 'image';
+    elseif(in_array($ext, $allowed_audio)) $type = 'audio';
+    elseif(in_array($ext, $allowed_video)) $type = 'video';
     if(!$type) continue;
 
     $url = rtrim($base,'/') . '/' . rawurlencode($f);
@@ -37,7 +42,5 @@ if(is_dir($dir)){
   }
 }
 
-// sort newest first by default
 usort($items, function($a,$b){ return ($b['mtime']??0) <=> ($a['mtime']??0); });
-
 echo json_encode(['items'=>$items], JSON_UNESCAPED_SLASHES);
