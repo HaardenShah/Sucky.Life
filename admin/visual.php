@@ -1,137 +1,181 @@
 <?php
 require __DIR__.'/config.php';
 require __DIR__.'/util.php';
-if(empty($_SESSION['authed'])){ header('Location: index.php'); exit; }
+
+if(empty($_SESSION['authed'])){ http_response_code(403); exit('Forbidden'); }
+
 $eggs = list_eggs();
 $slug = $_GET['slug'] ?? ($eggs[0] ?? '');
-$current = $slug ? load_egg($slug) : null;
 ?><!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Visual Egg Editor</title>
+<html>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Visual Editor — <?= htmlspecialchars($SITE_NAME) ?></title>
 <style>
-  :root{ --bg:#0f1115; --card:#141823; --line:#23283a; --fg:#f1f1f1; --muted:#a9afbf; --brand:#ffcc00; }
+  :root{ --bar:#0f1423; --line:#23283a; --brand:#ffcc00; --fg:#f4f6ff; --muted:#a9afbf; --bezier:cubic-bezier(.22,.61,.36,1) }
   *{box-sizing:border-box}
-  body{margin:0; font-family:system-ui,Segoe UI,Roboto,Inter,Arial; background:var(--bg); color:var(--fg)}
-  header,footer{padding:12px 16px; background:#101421; border-bottom:1px solid var(--line)}
-  main{display:grid; grid-template-columns:320px 1fr; gap:18px; padding:18px; height: calc(100vh - 58px)}
-  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; height:100%; overflow:auto}
+  html,body{height:100%}
+  body{margin:0; background:#0a0d16; color:var(--fg); overflow:hidden; font-family:system-ui,Segoe UI,Roboto,Inter,Arial}
+
+  /* Fullscreen iframe canvas */
+  .stage{position:fixed; inset:0; background:#000}
+  iframe#frame{position:absolute; inset:0; width:100%; height:100%; border:0}
+
+  /* Floating control bar */
+  .controls{
+    position:fixed; left:12px; right:12px; top:12px;
+    display:flex; align-items:center; gap:10px; padding:10px;
+    background:rgba(15,20,35,.86); border:1px solid var(--line);
+    border-radius:14px; backdrop-filter: blur(8px); box-shadow:0 10px 40px rgba(0,0,0,.35);
+    z-index:10;
+  }
+  select,button,input{
+    background:#0b1020; color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:8px 10px; font-size:14px;
+  }
+  button{cursor:pointer; transition:transform .18s var(--bezier), background .2s, border-color .2s}
+  button:hover{transform:translateY(-1px)}
+  .cta{border-color:var(--brand); background:rgba(255,204,0,.1)}
   .muted{color:var(--muted); font-size:12px}
-  select,input,button{width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:#0c0f19; color:var(--fg)}
-  button{cursor:pointer; transition: transform .18s cubic-bezier(.22,.61,.36,1)}
-  button:hover{transform: translateY(-1px)}
-  .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
-  .frameWrap{position:relative; height:100%; border-radius:14px; overflow:hidden; border:1px solid var(--line); background:#000}
-  iframe{position:absolute; inset:0; width:100%; height:100%; border:0}
-  .overlay{position:absolute; inset:0; pointer-events:none}
-  .clickCatcher{position:absolute; inset:0; cursor: crosshair; background:transparent; pointer-events:auto}
-  .marker{position:absolute; width:28px; height:28px; border-radius:50%; border:1px dashed rgba(255,255,255,.25); background:rgba(255,255,255,.08);
-          transform:translate(-50%,-50%) scale(.96); transition:transform .28s cubic-bezier(.22,.61,.36,1), box-shadow .25s ease;
-          box-shadow:0 10px 30px rgba(0,0,0,.45)}
-  .marker.show{transform:translate(-50%,-50%) scale(1.06)}
+  .sp{flex:1}
+
+  /* On-canvas marker + crosshair + HUD */
+  .marker{position:fixed; width:18px; height:18px; border-radius:50%; background:rgba(255,204,0,.95); box-shadow:0 6px 30px rgba(0,0,0,.45); transform:translate(-50%,-50%) scale(.9); z-index:9; pointer-events:none; transition: transform .18s var(--bezier)}
+  .marker.show{transform:translate(-50%,-50%) scale(1)}
+  .hud{
+    position:fixed; transform:translate(-50%, -120%); background:rgba(0,0,0,.72); border:1px solid rgba(255,255,255,.16);
+    color:#eaeefc; font-size:12px; padding:6px 8px; border-radius:10px; pointer-events:none; white-space:nowrap; z-index:9
+  }
+  .gridToggle{display:flex; align-items:center; gap:6px}
+  .grid{position:fixed; inset:0; background-image: linear-gradient(to right, rgba(255,255,255,.06) 1px, transparent 1px),
+                                     linear-gradient(to bottom, rgba(255,255,255,.06) 1px, transparent 1px);
+        background-size: 5vw 5vw, 5vh 5vh; pointer-events:none; z-index:2; opacity:.0; transition:opacity .2s}
+  .grid.on{opacity:.35}
+
+  /* Footer hint */
+  .foot{position:fixed; bottom:10px; left:12px; right:12px; display:flex; justify-content:space-between; color:var(--muted); font-size:12px; z-index:10}
 </style>
 </head>
 <body>
-<header><strong>Visual Editor</strong> — click on the preview to place the egg</header>
-<main>
-  <aside class="card">
-    <form id="controls">
-      <label>Choose egg</label>
-      <select id="egg">
-        <?php foreach($eggs as $s): ?>
-          <option value="<?=$s?>" <?=$s===$slug?'selected':''?>><?=$s?></option>
-        <?php endforeach; ?>
-      </select>
-      <div style="height:10px"></div>
-      <div class="row">
-        <div>
-          <label>Left (vw)</label>
-          <input id="left" type="number" step="0.1" value="<?= isset($current['pos_left']) ? htmlspecialchars($current['pos_left']) : '' ?>" placeholder="e.g., 18">
-        </div>
-        <div>
-          <label>Top (vh)</label>
-          <input id="top" type="number" step="0.1" value="<?= isset($current['pos_top']) ? htmlspecialchars($current['pos_top']) : '' ?>" placeholder="e.g., 62">
-        </div>
-      </div>
-      <div style="height:10px"></div>
-      <button id="placeBtn" type="button">🎯 Click in preview to place</button>
-      <div style="height:8px"></div>
-      <button id="saveBtn" type="button">💾 Save Position</button>
-      <p class="muted" id="status"></p>
-      <hr>
-      <a href="index.php" class="muted">← Back to Admin</a>
-    </form>
-  </aside>
-
-  <section class="frameWrap">
+  <div class="stage">
     <iframe id="frame" src="../index.php?from=editor" title="Homepage Preview" loading="eager"></iframe>
-    <div class="overlay">
-      <div id="marker" class="marker" style="display:none"></div>
-    </div>
-    <div id="catcher" class="clickCatcher" style="display:none"></div>
-  </section>
-</main>
+    <div class="grid" id="grid"></div>
+    <div class="marker" id="marker" style="left:-9999px; top:-9999px"></div>
+    <div class="hud" id="hud" style="left:-9999px; top:-9999px">0vw, 0vh</div>
+  </div>
+
+  <div class="controls" role="toolbar" aria-label="Placement Controls">
+    <strong style="margin-right:6px">🎯 Visual Editor</strong>
+    <label class="muted">Egg</label>
+    <select id="eggSel">
+      <?php foreach($eggs as $e): ?>
+        <option value="<?=htmlspecialchars($e)?>" <?= $e===$slug?'selected':'' ?>><?=htmlspecialchars($e)?></option>
+      <?php endforeach; ?>
+    </select>
+
+    <span class="sp"></span>
+
+    <span class="gridToggle">
+      <input type="checkbox" id="toggleGrid">
+      <label for="toggleGrid" class="muted">Grid</label>
+    </span>
+
+    <button type="button" id="btnCenter">Center</button>
+    <button type="button" id="btnSave" class="cta">Save position</button>
+    <a href="./index.php?slug=<?=urlencode($slug)?>" target="_blank"><button type="button">Back to Admin</button></a>
+  </div>
+
+  <div class="foot">
+    <span class="muted">Tip: click anywhere on the page to place the egg. We save **viewport units** (vw/vh) so it’s device-accurate.</span>
+    <span id="posReadout" class="muted"></span>
+  </div>
 
 <script>
   const frame = document.getElementById('frame');
-  const catcher = document.getElementById('catcher');
   const marker = document.getElementById('marker');
-  const eggSel = document.getElementById('egg');
-  const leftInput = document.getElementById('left');
-  const topInput = document.getElementById('top');
-  const statusEl = document.getElementById('status');
-  const placeBtn = document.getElementById('placeBtn');
-  const saveBtn = document.getElementById('saveBtn');
+  const hud = document.getElementById('hud');
+  const grid = document.getElementById('grid');
+  const eggSel = document.getElementById('eggSel');
+  const posReadout = document.getElementById('posReadout');
+  const btnCenter = document.getElementById('btnCenter');
+  const btnSave = document.getElementById('btnSave');
+  const toggleGrid = document.getElementById('toggleGrid');
 
-  eggSel.addEventListener('change', ()=> {
-    const slug = eggSel.value;
-    location.href = 'visual.php?slug=' + encodeURIComponent(slug);
+  let pos = { vw: null, vh: null };
+  let currentSlug = eggSel.value;
+
+  eggSel.addEventListener('change', ()=>{
+    currentSlug = eggSel.value;
+    // optional: fetch current to show marker
+    fetch('../eggs/data/'+encodeURIComponent(currentSlug)+'.json?ts='+(Date.now()))
+      .then(r=>r.json()).then(j=>{
+        if(typeof j.pos_left === 'number' && typeof j.pos_top === 'number'){
+          setMarker(j.pos_left, j.pos_top);
+        } else {
+          hideMarker();
+        }
+      }).catch(hideMarker);
   });
 
-  placeBtn.addEventListener('click', ()=>{
-    status('Click anywhere on the preview…');
-    catcher.style.display = 'block';
+  toggleGrid.addEventListener('change', ()=> grid.classList.toggle('on', toggleGrid.checked));
+
+  btnCenter.addEventListener('click', ()=>{
+    setMarker(50, 50);
   });
 
-  catcher.addEventListener('click', (e)=>{
-    // Click position inside the iframe box -> % of its width/height -> vw/vh equivalent.
-    const rect = frame.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;   // 0..1
-    const y = (e.clientY - rect.top) / rect.height;   // 0..1
-    const leftVW = +(x * 100).toFixed(2);
-    const topVH  = +(y * 100).toFixed(2);
-    leftInput.value = leftVW;
-    topInput.value = topVH;
-    showMarker(leftVW, topVH);
-    catcher.style.display = 'none';
-    status(`Position: ${leftVW}vw, ${topVH}vh (not saved yet)`);
+  btnSave.addEventListener('click', ()=>{
+    if(pos.vw==null || pos.vh==null){ flash('Click the page to place the egg first.'); return; }
+    const body = new URLSearchParams({ slug: currentSlug, pos_left: pos.vw, pos_top: pos.vh });
+    fetch('save_position.php', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body })
+      .then(r=>r.json()).then(j=>{
+        if(j && j.ok){ flash('Saved ✓'); }
+        else { flash('Save failed'); }
+      }).catch(()=> flash('Save failed'));
   });
 
-  function showMarker(lvw, tvh){
-    marker.style.display = 'block';
-    marker.style.left = lvw + 'vw';
-    marker.style.top  = tvh + 'vh';
-    marker.classList.remove('show');
-    requestAnimationFrame(()=> marker.classList.add('show'));
+  function flash(text){
+    btnSave.textContent = text;
+    setTimeout(()=> btnSave.textContent='Save position', 900);
   }
 
-  saveBtn.addEventListener('click', ()=>{
-    const slug = eggSel.value;
-    const lvw = parseFloat(leftInput.value);
-    const tvh = parseFloat(topInput.value);
-    if(!(isFinite(lvw) && isFinite(tvh))) return status('Please set a valid position.');
-    const body = new URLSearchParams({slug, pos_left: lvw, pos_top: tvh});
-    fetch('save_position.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body})
-      .then(r=>r.json()).then(j=>{
-        if(j.ok){
-          status('Saved. Refreshing preview…');
-          // bust cache
-          frame.src = '../index.html?from=editor&ts=' + Date.now();
-        } else {
-          status('Error: ' + (j.error || 'Unknown'));
-        }
-      }).catch(()=> status('Network error'));
-  });
+  function setMarker(vw, vh){
+    pos = { vw: +vw, vh: +vh };
+    marker.style.left = vw + 'vw';
+    marker.style.top  = vh + 'vh';
+    marker.classList.add('show');
+    hud.style.left = vw + 'vw';
+    hud.style.top  = vh + 'vh';
+    hud.textContent = vw.toFixed(2) + 'vw, ' + vh.toFixed(2) + 'vh';
+    posReadout.textContent = 'Current: ' + hud.textContent;
+  }
+  function hideMarker(){
+    pos = {vw:null, vh:null};
+    marker.style.left = '-9999px';
+    hud.style.left = '-9999px';
+    posReadout.textContent = 'Not placed';
+  }
 
-  function status(t){ statusEl.textContent = t; }
+  // Receive precise vw/vh from the homepage (editor mode)
+  window.addEventListener('message', (ev)=>{
+    try{
+      if(!ev.data || ev.data.type !== 'egg-editor-click') return;
+      const {vw, vh} = ev.data;
+      if(typeof vw === 'number' && typeof vh === 'number'){
+        setMarker(vw, vh);
+      }
+    }catch(_){}
+  }, false);
+
+  // Load initial
+  (function init(){
+    if(currentSlug){
+      fetch('../eggs/data/'+encodeURIComponent(currentSlug)+'.json?ts='+(Date.now()))
+        .then(r=>r.json()).then(j=>{
+          if(typeof j.pos_left === 'number' && typeof j.pos_top === 'number'){
+            setMarker(j.pos_left, j.pos_top);
+          } else { hideMarker(); }
+        }).catch(hideMarker);
+    }
+  })();
 </script>
-</body></html>
+</body>
+</html>

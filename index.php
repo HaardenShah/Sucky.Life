@@ -137,6 +137,47 @@ if($NEEDS_SETUP){
       spot.addEventListener('click', ()=>openEgg('eggs/egg.php?slug='+encodeURIComponent(item.slug))); document.body.appendChild(spot);
       const note=document.createElement('div'); note.className='egg-note'; note.dataset.for=item.slug; note.style.left=item.pos_left+'vw'; note.style.top=(item.pos_top-2)+'vh'; note.textContent=item.title||item.caption||item.slug; document.body.appendChild(note);
     }
+
+    // --- Editor-mode: only when loaded with ?from=editor ---
+  (function(){
+    const fromEditor = new URLSearchParams(location.search).get('from') === 'editor';
+    if(!fromEditor) return;
+
+    // Subtle hint overlay (doesn't affect layout)
+    const cross = document.createElement('div');
+    cross.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:60';
+    document.body.appendChild(cross);
+
+    function ping(x,y){
+      const dot = document.createElement('div');
+      dot.style.cssText = 'position:fixed;width:14px;height:14px;border-radius:50%;background:rgba(255,204,0,.95);box-shadow:0 6px 20px rgba(0,0,0,.45);transform:translate(-50%,-50%);z-index:61';
+      dot.style.left = x + 'px'; dot.style.top = y + 'px';
+      document.body.appendChild(dot);
+      setTimeout(()=> dot.remove(), 450);
+    }
+
+    function onPlace(ev){
+      // Prefer client coords (viewport), then compute vw/vh from window size
+      const x = ev.clientX, y = ev.clientY;
+      const vw = (x / window.innerWidth) * 100;
+      const vh = (y / window.innerHeight) * 100;
+
+      // Tell parent admin overlay
+      try{ window.parent.postMessage({ type:'egg-editor-click', vw, vh }, '*'); }catch(_){}
+
+      // Visual feedback
+      ping(x,y);
+    }
+
+    // Capture click anywhere (avoid swallowing regular clicks if needed)
+    document.addEventListener('click', function(e){
+      // Don’t hijack modal/close buttons while in editor
+      if(e.target.closest('.modal') || e.target.closest('button')) return;
+      onPlace(e);
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+  })();
   </script>
 </body>
 </html>
