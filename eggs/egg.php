@@ -15,6 +15,8 @@ $egg = json_decode(file_get_contents($file), true) ?: [];
   img, video { display:block; width:100%; height:auto; background:#0b0b0b }
   figcaption { padding:14px 16px; font-size:15px; color:#ddd; background:rgba(255,255,255,.03) }
   .body { padding:14px 16px; font-size:15px; color:#dcdcdc; line-height:1.5; background:#0f0f0f}
+  .audio { padding:12px 16px; background:#0f0f0f; border-top:1px solid rgba(255,255,255,.12) }
+  audio { width:100%; outline:none }
   a { color:#ffcc00 }
 </style></head>
 <body>
@@ -27,6 +29,11 @@ $egg = json_decode(file_get_contents($file), true) ?: [];
     <?php endif; ?>
     <?php if(!empty($egg['body'])): ?>
       <div class="body"><?= $egg['body'] ?></div>
+    <?php endif; ?>
+    <?php if(!empty($egg['audio'])): ?>
+      <div class="audio">
+        <audio controls preload="metadata" src="<?= htmlspecialchars($egg['audio']) ?>"></audio>
+      </div>
     <?php endif; ?>
   </figure>
 </body></html>

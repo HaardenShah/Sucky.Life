@@ -24,12 +24,13 @@ $current = $slug ? load_egg($slug) : null;
   *{box-sizing:border-box}
   body{margin:0; font-family:system-ui,Segoe UI,Roboto,Inter,Arial; background:var(--bg); color:var(--fg)}
   header,footer{padding:12px 16px; background:#101421; border-bottom:1px solid var(--line)}
-  main{display:grid; grid-template-columns:280px 1fr; gap:18px; padding:18px}
+  main{display:grid; grid-template-columns:320px 1fr; gap:18px; padding:18px}
   .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px}
   a{color:var(--brand)}
   input,textarea{width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:#0c0f19; color:var(--fg)}
   label{font-weight:600; font-size:13px}
   .row{display:grid; gap:10px; grid-template-columns:1fr 1fr}
+  .row3{display:grid; gap:10px; grid-template-columns:1fr 1fr 1fr}
   button{padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:#1a2030; color:var(--fg); cursor:pointer}
   ul{list-style:none; padding:0; margin:0}
   li{margin:0 0 8px; display:flex; align-items:center; justify-content:space-between; gap:8px}
@@ -37,9 +38,11 @@ $current = $slug ? load_egg($slug) : null;
   .actions button{font-size:12px; padding:6px 8px}
   .drop{border:2px dashed #3a4363; border-radius:12px; padding:12px; text-align:center; background:#0b0f1a}
   .drop.drag{background:#0e1424; border-color:#6573a3}
-  .preview{margin-top:8px; display:flex; gap:8px; align-items:center}
+  .preview{margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
   .preview img{max-height:90px; border-radius:8px; border:1px solid var(--line)}
   .pill{display:inline-block; padding:2px 8px; border:1px solid var(--line); border-radius:999px; font-size:12px; color:var(--muted)}
+  .help{font-size:12px; color:var(--muted); margin-top:6px}
+  .sectionTitle{margin:14px 0 6px; font-weight:700; color:#e9e9e9}
 </style></head>
 <body>
 <header>
@@ -95,6 +98,7 @@ $current = $slug ? load_egg($slug) : null;
       <?php if($slug): ?>
         <form id="eggForm" method="post" action="save.php" enctype="multipart/form-data">
           <input type="hidden" name="slug" value="<?=htmlspecialchars($slug)?>">
+
           <div class="row">
             <div>
               <label>Title</label>
@@ -105,6 +109,7 @@ $current = $slug ? load_egg($slug) : null;
               <input name="alt" value="<?=htmlspecialchars($current['alt'] ?? '')?>" placeholder="Describe the image">
             </div>
           </div>
+
           <div class="row">
             <div>
               <label>Caption</label>
@@ -115,6 +120,7 @@ $current = $slug ? load_egg($slug) : null;
               <input value="<?=htmlspecialchars($current['image'] ?? '')?>" disabled>
             </div>
           </div>
+
           <div>
             <label>Story (you can paste text, links, or basic HTML)</label>
             <textarea name="body" rows="6" placeholder="Tell the story…"><?=(htmlspecialchars($current['body'] ?? ''))?></textarea>
@@ -129,15 +135,20 @@ $current = $slug ? load_egg($slug) : null;
                  : 'Not placed yet' ?>" disabled>
             </div>
             <div style="display:flex;align-items:flex-end;gap:8px;">
-              <a class="pill" href="visual.php">Set in Visual Editor →</a>
+              <a class="pill" href="visual.php?slug=<?=urlencode($slug)?>">Set in Visual Editor →</a>
             </div>
           </div>
 
-          <div class="drop" id="drop">
+          <div class="sectionTitle">Image</div>
+          <div class="drop" id="dropImg">
             <p><strong>Drag & drop</strong> an image here, <strong>paste</strong> one, or <strong>click</strong> to choose a file.</p>
-            <input type="file" id="file" name="image" accept="image/*" style="display:none">
-            <div class="preview" id="preview"></div>
-            <p class="muted">We’ll automatically convert to WebP for speed. Originals are not kept.</p>
+            <input type="file" id="fileImg" name="image" accept="image/*" style="display:none">
+            <div class="preview" id="previewImg">
+              <?php if(!empty($current['image'])): ?>
+                <img src="<?=htmlspecialchars($current['image'])?>" alt="current image" />
+              <?php endif; ?>
+            </div>
+            <p class="help">We’ll automatically convert to WebP for speed (fallback to original format if WebP unsupported).</p>
           </div>
 
           <div class="row">
@@ -145,8 +156,27 @@ $current = $slug ? load_egg($slug) : null;
               <label>OR Image URL</label>
               <input name="image_url" placeholder="https://…">
             </div>
+            <div></div>
+          </div>
+
+          <div class="sectionTitle">Audio (optional)</div>
+          <div class="drop" id="dropAudio">
+            <p><strong>Drag & drop</strong> an audio file here, or <strong>click</strong> to choose one.</p>
+            <input type="file" id="fileAudio" name="audio" accept=".mp3,.m4a,.aac,.wav,.ogg,.oga,.webm" style="display:none">
+            <div class="preview" id="previewAudio">
+              <?php if(!empty($current['audio'])): ?>
+                <span class="pill">Current: <?=htmlspecialchars(basename($current['audio']))?></span>
+              <?php endif; ?>
+            </div>
+            <p class="help">Supported: mp3, m4a/aac, wav, ogg/oga, webm. No transcoding is done.</p>
+          </div>
+
+          <div class="row">
             <div>
-              <label>&nbsp;</label>
+              <label>OR Audio URL</label>
+              <input name="audio_url" placeholder="https://…/sound.mp3">
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:8px;">
               <button type="submit">Save</button>
               <a class="muted" target="_blank" href="../eggs/egg.php?slug=<?=urlencode($slug)?>">Preview →</a>
             </div>
@@ -171,23 +201,42 @@ $current = $slug ? load_egg($slug) : null;
       .then(r=>r.text()).then(()=>location.href='index.php?slug='+encodeURIComponent(ns));
   }
 
-  const drop = document.getElementById('drop');
-  const file = document.getElementById('file');
-  const preview = document.getElementById('preview');
-  if(drop && file){
-    drop.addEventListener('click', ()=> file.click());
-    drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('drag'); });
-    drop.addEventListener('dragleave', ()=> drop.classList.remove('drag'));
-    drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('drag'); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
-    document.addEventListener('paste', e=>{ const it = e.clipboardData && e.clipboardData.items; if(!it) return; for(const i of it){ if(i.kind==='file'){ handleFile(i.getAsFile()); break; } } });
-    file.addEventListener('change', ()=>{ if(file.files[0]) handleFile(file.files[0]); });
+  // Image drop/paste
+  const dropImg = document.getElementById('dropImg');
+  const fileImg = document.getElementById('fileImg');
+  const previewImg = document.getElementById('previewImg');
+  if(dropImg && fileImg){
+    dropImg.addEventListener('click', ()=> fileImg.click());
+    dropImg.addEventListener('dragover', e=>{ e.preventDefault(); dropImg.classList.add('drag'); });
+    dropImg.addEventListener('dragleave', ()=> dropImg.classList.remove('drag'));
+    dropImg.addEventListener('drop', e=>{ e.preventDefault(); dropImg.classList.remove('drag'); if(e.dataTransfer.files[0]) handleImg(e.dataTransfer.files[0]); });
+    document.addEventListener('paste', e=>{ const it = e.clipboardData && e.clipboardData.items; if(!it) return; for(const i of it){ if(i.kind==='file' && i.type.startsWith('image/')){ handleImg(i.getAsFile()); break; } } });
+    fileImg.addEventListener('change', ()=>{ if(fileImg.files[0]) handleImg(fileImg.files[0]); });
   }
-  function handleFile(f){
+  function handleImg(f){
     const url = URL.createObjectURL(f);
-    preview.innerHTML = '';
+    previewImg.innerHTML = '';
     const img = new Image(); img.onload = ()=> URL.revokeObjectURL(url); img.src=url; img.alt='preview';
-    preview.appendChild(img);
-    const dt = new DataTransfer(); dt.items.add(f); file.files = dt.files;
+    previewImg.appendChild(img);
+    const dt = new DataTransfer(); dt.items.add(f); fileImg.files = dt.files;
+  }
+
+  // Audio drop
+  const dropAudio = document.getElementById('dropAudio');
+  const fileAudio = document.getElementById('fileAudio');
+  const previewAudio = document.getElementById('previewAudio');
+  if(dropAudio && fileAudio){
+    dropAudio.addEventListener('click', ()=> fileAudio.click());
+    dropAudio.addEventListener('dragover', e=>{ e.preventDefault(); dropAudio.classList.add('drag'); });
+    dropAudio.addEventListener('dragleave', ()=> dropAudio.classList.remove('drag'));
+    dropAudio.addEventListener('drop', e=>{ e.preventDefault(); dropAudio.classList.remove('drag'); if(e.dataTransfer.files[0]) handleAudio(e.dataTransfer.files[0]); });
+    fileAudio.addEventListener('change', ()=>{ if(fileAudio.files[0]) handleAudio(fileAudio.files[0]); });
+  }
+  function handleAudio(f){
+    previewAudio.innerHTML = '';
+    const tag = document.createElement('span'); tag.className='pill'; tag.textContent = 'Selected: ' + (f.name || 'audio');
+    previewAudio.appendChild(tag);
+    const dt = new DataTransfer(); dt.items.add(f); fileAudio.files = dt.files;
   }
 </script>
 </body></html>
