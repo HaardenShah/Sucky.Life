@@ -1,215 +1,225 @@
-# sucky.life — Inside-Joke Engine
+# sucky.life
 
-A plug-and-play meme site for your crew: animated homepage, silky modal “eggs”, per-egg images/audio/video, and a full-screen visual editor that places hotspots with pixel-perfect accuracy (via vw/vh). No code edits required after install.
+A gloriously over-the-top meme site for your friend group.
+Main page: your friend’s dramatic portrait + visceral screech (loop), falling “tears” that dodge the cursor, and **hidden easter eggs** that pop open in animated iframes with their own media (image / video / audio).
 
-## Feature Snapshot
+Admin panel lets you add/edit eggs, drag-drop media, place hotspots visually, and manage a simple visitor password gate.
 
-* **First-run Setup Wizard**
-  Friendly, animated screen to set **Site Name**, **Domain**, and **Admin Password**.
-* **Homepage drama**
-
-  * Big **Play/Stop** button for the screech (not just mute)
-  * **Tears** fall only while audio is playing; mouse **repels** droplets
-  * Smooth, Apple-y **modal** with iframe for each inside joke (“egg”)
-  * **Deep link**: `/?egg=slug` opens straight into that egg
-* **Eggs (inside jokes)**
-
-  * Content lives in flat **JSON** files (no DB)
-  * Each egg supports **image**, **audio**, and **video** (MP4/WebM recommended)
-  * Captions + rich story body (basic HTML allowed)
-* **Admin (no-code)**
-
-  * Create / edit / delete / rename eggs
-  * **Drag-drop** image uploads (auto-WebP when supported)
-  * Optional **audio** and **video** upload or **URL**
-  * **Media Picker** with previews (images/audio/video) from `/assets/uploads`
-  * **Full-screen Visual Editor** overlays your homepage, clicks save positions in **vw/vh**—accurate on every device
-  * “Center” and grid overlay; animated UI; keyboard accessible
-* **Security & UX niceties**
-
-  * Password stored hashed; first-run requires setting one
-  * Admin session-gated endpoints
-  * Autoplay safe: main audio only plays after interaction
+> ⚠️ **No direct egg links.** Eggs only open inside the homepage modal. Even if someone copies the iframe URL, it 404s outside the session.
 
 ---
 
-## Quick Start (zero config)
+## ✨ Features
 
-1. **Upload all files** to a PHP-enabled host.
-2. Ensure these directories are **writable** by PHP:
+### Public site
 
-   * `assets/uploads/`
-   * `eggs/data/`
-3. Visit your domain → the **Setup Wizard** appears.
-   Set **Site Name**, **Domain**, and **Admin Password** → **Finish**.
-4. You’ll land in **Admin**. Create your first egg, then open the **Visual Editor** to place it on the page.
+* **Hero + screech**: click “Make it extra sucky” (or the curly-lip text) to start/stop the looped screech.
 
-> Already had an older version? We now serve the homepage from `index.php`. You can keep an old `index.html` around, but it’s unused.
+  * Mute/unmute button **only shows while playing**.
+  * Tears spawn **only while audio is playing and unmuted**, and subtly repel from the cursor.
+* **Silky modal**: eggs open in a glassy, animated iframe; backdrop is blurred; ESC/click outside closes it.
+* **Hotspots**: subtle floating dots over the hero image; hover shows a label; click opens the egg.
+* **Visitor gate (optional)**: password prompt before anyone can view the site.
+
+### Eggs
+
+* Each egg can have:
+
+  * **Image** (plus automatic responsive WebP variants when supported)
+  * **Video** (auto poster thumbnail if ffmpeg is available)
+  * **Audio** (per-egg sound; normalized to -14 LUFS if ffmpeg is available)
+  * **Title, caption, alt, body (HTML)**
+  * **Draft** flag (hidden from visitors)
+  * **Position** (vw/vh on the hero)
+* **No direct linking**: the egg iframe requires a per-session **view token**; outside the modal/session it won’t load.
+
+### Admin UX
+
+* **Visual hotspot editor**: full-screen live preview, click anywhere to place;
+  **Grid toggle**, **snap to 5vw/5vh**, **breakpoint previews** (390 / 768 / 1280), **undo/redo** (last 10 placements).
+* **Drag-drop uploads** with preview pickers for images, audio, and video.
+* **Autosave** every ~10s (silent) and **Draft/Publish** fields.
+* **Search & filter** (including “drafts only”).
+* **Visitor gate manager** to turn gating on/off and set the visitor password.
+
+### Security & privacy
+
+* **Session-bound view token**: eggs only load when launched from the homepage.
+* **CSRF** on admin POST endpoints.
+* **Rate-limiting** on admin login and visitor gate.
+* **Hardened sessions** (httponly; secure when HTTPS).
+* Optional crawler block via `robots.txt` (included).
+
+> On shared hosting, many security headers are managed by the platform. This project **doesn’t require** `.htaccess`. If you later self-host, you can add CSP/headers at the server level.
 
 ---
 
-## Typical Flow
+## 🚀 Quick start
 
-* **Add egg** → fill title/caption/story → upload image (or pick from uploads via Media Picker).
-* **Optional media** → add per-egg **audio** and/or **video**. Preview right in the editor.
-* **Place it** → Visual Editor → click where it belongs → **Save position**.
-* **Test** → on homepage, click the hotspot → modal opens the egg page with your image/video/audio.
+1. **Upload everything** to your host (root of your subdomain or site directory).
+2. Visit your domain → you’ll see the **Welcome Setup**:
+
+   * Set **Site name**, **Domain**, and **Admin password**.
+3. You’ll be redirected to **/admin/login.php**. Sign in.
+4. In Admin, create your first **egg**, set **Draft** off when ready, and place it using **Visual Editor**.
+5. Optional: enable the **Visitor Gate** in Admin → Privacy if you want a site password.
 
 ---
 
-## File Map
+## 🗂️ Project structure
 
 ```
-/index.php                         # Homepage (dynamic hotspots, play/stop audio, tears, modal, deep-link support)
-├─ assets/
-│  ├─ friend.jpg                  # Replace with your hero image
-│  ├─ screech.mp3                 # Replace with your screech audio
-│  └─ uploads/                    # All uploaded media (images/audio/video)
-├─ eggs/
-│  ├─ egg.php                     # Public egg renderer (image/caption/body + audio/video player)
-│  ├─ list.php                    # JSON feed of eggs (slug, title, positions) for homepage
-│  └─ data/*.json                 # One JSON per egg (content + pos_left/pos_top in vw/vh)
-└─ admin/
-   ├─ setup.php                   # First-run wizard (site name/domain/password)
-   ├─ index.php                   # CMS UI (create/edit/rename/delete + media picker)
-   ├─ visual.php                  # Full-screen visual placement editor
-   ├─ save.php                    # Persists egg content (image/audio/video, URLs or uploads)
-   ├─ save_position.php           # Persists vw/vh position for a given egg
-   ├─ media_list.php              # Returns uploads (images/audio/video) with metadata
-   ├─ rename.php                  # Rename egg slug
-   ├─ delete.php                  # Delete egg
-   ├─ util.php                    # Helpers (slugify, list/load/save eggs, WebP conversion)
-   ├─ config.php                  # Paths + session + setup state
-   ├─ site.json                   # (generated) {site_name, domain, first_run:false, ...}
-   └─ password.json               # (generated) {hash, updated_at}
+/assets/            Public assets (hero image “friend.jpg”, uploads, audio)
+/assets/uploads/    User uploads (images, videos, audio)
+/eggs/egg.php       Renders a single egg in the modal (iframe)
+/eggs/list.php      JSON list of eggs for hotspots
+/eggs/data/         JSON files per egg (title/caption/media/position/etc.)
+/admin/             Admin panel, setup, login, and helpers
+  config.php        Shared config, sessions, CSRF, rate limit, paths
+  setup.php         First-run setup (creates site.json + password.json)
+  login.php         Admin sign-in
+  index.php         Admin UI (egg list/editor/media pickers)
+  save.php          Save egg + uploads + media post-processing
+  visual.php        Full-screen visual hotspot placer
+  util.php          Helper functions
+index.php           Homepage
+robots.txt          Disallow all (you can change this later)
+```
+
+**Config/runtime files** (created at first run):
+
+* `admin/site.json` — site name, domain, visitor gate settings
+* `admin/password.json` — admin password hash (bcrypt)
+
+---
+
+## 🛠️ Requirements
+
+* PHP 8.x recommended
+* **Optional:**
+
+  * **GD with WebP** support → auto responsive WebP image variants
+  * **ffmpeg** → video poster frames + audio loudness normalization
+
+The site runs fine without GD/ffmpeg; those features are opportunistic.
+
+---
+
+## 🧭 Admin guide
+
+### Creating & editing eggs
+
+* Go to **/admin/** → “New Egg”
+* Fill out fields (Title, Caption, Alt, Body)
+* Add media: upload or pick from the **Media Picker** (with previews and audio play button)
+* **Draft** on = hidden from visitors; off = visible
+* Click **Visual Editor** to place the hotspot (click on the hero to set position)
+
+### Visual Editor goodies
+
+* **Grid** toggles a 5vw/5vh guide
+* **Snap** clamps positions to the grid
+* **390/768/1280** quick layout previews
+* **Undo/Redo** remembers your last 10 placements
+
+### Visitor gate (optional)
+
+* Admin → Privacy → toggle on/off and set a password
+* Visitors must enter that password once per session
+
+---
+
+## 🔊 Audio behavior
+
+* The **main screech** loops once started. You can **stop** it via the main button and **mute/unmute** while it’s playing.
+
+  * Mute/unmute button **only appears while playing**.
+  * Tears fall **only when playing and unmuted**.
+* Each **egg** can have its own audio (played on demand in the egg modal).
+
+> Mobile browsers often require a first tap before audio can start. The UI handles this gracefully.
+
+---
+
+## 🔒 Link policy (no direct egg URLs)
+
+* Eggs **must** be opened via the homepage modal.
+* The iframe request includes a session **view token**; without it, the egg page returns **404**.
+* This keeps the “hidden easter eggs” mechanic intact: you have to find them on the page.
+
+---
+
+## 🧑‍⚕️ Troubleshooting
+
+* **Can’t log in after setup**
+
+  * Make sure `admin/password.json` exists and is writable by PHP.
+  * If needed, use the admin password reset flow (we recommend removing any temporary reset files after use).
+* **Uploads not appearing**
+
+  * Ensure `assets/uploads/` is writable (typical perms: 755/775 for folders).
+* **Video has no thumbnail**
+
+  * ffmpeg likely isn’t available on your host; the video still plays, just without a poster image.
+* **Images don’t generate WebP variants**
+
+  * Your PHP GD might not have WebP enabled. It’s optional.
+
+---
+
+## 🔐 Security notes (shared hosting)
+
+* Many shared hosts inject security headers (CSP, X-Frame-Options, etc.) automatically.
+* This project does **not** rely on `.htaccess`. If you move to a VPS or custom server, add headers at the web server level.
+* `robots.txt` is included to **Disallow: /** by default; flip it if you decide to open the site up.
+
+---
+
+## 🧳 Backup / migrate
+
+* Copy the whole folder, plus:
+
+  * `admin/site.json`
+  * `admin/password.json`
+  * `eggs/data/*.json`
+  * `assets/uploads/*`
+* Drop onto the new host; first visit should **not** trigger setup if those files are present and readable.
+
+---
+
+## 📦 .gitignore (recommended)
+
+If you’re committing this repo publicly, ignore secrets and heavy content:
+
+```
+# runtime secrets
+admin/site.json
+admin/password.json
+admin/.unlock
+
+# user content
+eggs/data/*.json
+assets/uploads/*
+
+# temp logs/cache
+logs/*
+*.log
+.cache/
 ```
 
 ---
 
-## Data Model (egg JSON)
+## 🗒️ Changelog (recent highlights)
 
-Example `eggs/data/usb.json`:
-
-```json
-{
-  "title": "USB of Doom",
-  "caption": "He swore it was ‘just charging’",
-  "alt": "Close-up of a cursed USB stick",
-  "body": "<p>Short story with <strong>light HTML</strong>.</p>",
-  "image": "/assets/uploads/usb.webp",
-  "audio": "/assets/uploads/usb-laugh.mp3",
-  "video": "/assets/uploads/usb-fail.mp4",
-  "pos_left": 62.4,
-  "pos_top": 41.8
-}
-```
-
-* Positions are **viewport-relative**:
-
-  * `pos_left` = vw (0–100)
-  * `pos_top`  = vh (0–100)
+* Security: session view token for egg iframes; CSRF on admin endpoints; rate limiting on login and gate
+* Admin UX: Visual Editor (grid/snap/breakpoints/undo), autosave, draft/publish, media picker with previews
+* Media pipeline: responsive WebP variants (if GD/WebP), video poster thumbnails, audio loudness normalization
+* Public: mute button only visible during playback; tears tied to audio state; silky modal animations
 
 ---
 
-## Media Guidelines
+## License
 
-* **Images**: any common format; auto-converted to **WebP** when GD supports it; otherwise original is kept.
-* **Audio**: mp3, m4a/aac, wav, ogg/oga, webm (no transcoding).
-* **Video**: mp4, webm, ogg/ogv, mov, m4v (no transcoding).
-
-  * For best cross-browser playback: **MP4 (H.264/AAC)** or **WebM (VP9/Opus)**.
-
-> If you want automatic transcoding or thumbnails, we can add an FFmpeg step later.
+Do whatever you want with it inside your friend group’s chaotic good jurisdiction. 😄
 
 ---
-
-## Admin: Visual Editor (accuracy notes)
-
-* Opens the homepage in an iframe that **fills the screen**.
-* Clicks are converted to **vw/vh** using the actual `window.innerWidth/innerHeight` of the loaded page.
-* The editor overlays a marker + HUD with the exact saved values and an optional grid.
-* “Center” button drops the marker at 50vw / 50vh.
-
----
-
-## Deep Links
-
-Open a specific egg directly:
-
-```
-https://yourdomain/?egg=slug
-```
-
-The homepage auto-opens the modal with that egg.
-
----
-
-## Accessibility
-
-* Provide **ALT text** for each egg image.
-* Buttons have ARIA labels; modal supports **Esc** to close.
-* Video and audio players use native controls for keyboard/screen reader support.
-
----
-
-## Performance Tips
-
-* Prefer **WebP** for images (automatic when possible).
-* Keep video sizes sane (short clips; compress if needed).
-* Hotspots are loaded once via a tiny JSON (`eggs/list.php`).
-
----
-
-## Security
-
-* Password is hashed (PHP `password_hash`) in `admin/password.json`.
-* Protect `/admin` further with HTTP Basic Auth if you want extra belt-and-suspenders.
-* If you forget the password, as a last resort delete `admin/password.json` and re-run the setup (you’ll set a new one).
-
----
-
-## Deploy / Update
-
-1. Copy new files up (or use Git/CI).
-2. Ensure `assets/uploads/` and `eggs/data/` remain **writable**.
-3. No migrations needed—flat files keep your content.
-
-> Moving from a much older build? Rename your root `index.html` to `index.php` (or just keep it—our `index.php` is what gets served).
-
----
-
-## Troubleshooting
-
-* **Admin shows header only (blank body)**
-  Ensure you’ve uploaded the full `admin/index.php` (not the earlier stub) and that `eggs/data/` exists.
-* **Hotspots don’t show**
-  The egg must have both `pos_left` and `pos_top`. Use the **Visual Editor** to save a position.
-* **Uploads fail**
-  Check folder permissions on `assets/uploads/`.
-* **WebP not generated**
-  Your PHP GD may lack WebP support—images will stay in original format (that’s fine).
-* **Video won’t play on iOS**
-  Re-encode to **H.264/AAC MP4** or **WebM**; MOV/OGV isn’t universally supported.
-
----
-
-## Dev Notes (for the curious)
-
-* No DB, just **flat JSON** + **uploads** folder.
-* Homepage effects:
-
-  * **Play/Stop** toggles the main audio loop
-  * Tears spawn only when audio is **playing & unmuted**
-  * **Mute** toggles without stopping tears logic (tears stop if muted)
-  * Cursor **repels** active droplets
-  * Modal open/close uses CSS transitions; the iframe src resets on close.
-* Visual Editor communicates via `postMessage` (`egg-editor-click` → vw/vh), so placements stay consistent across devices.
-
----
-
-## Roadmap Ideas (if you want v2 spice)
-
-* Snap-to-grid (hold **Shift** to snap to 1vw / 1vh).
-* Trash/restore (“Recycle Bin” for deleted eggs).
-* Per-egg autoplay-muted video, or poster thumbnails.
-* Optional FFmpeg pipeline for transcoding and generating GIF/thumbnail previews.
