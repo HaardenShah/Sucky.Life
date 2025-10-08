@@ -63,7 +63,7 @@ $current = $slug ? load_egg($slug) : null;
   </aside>
 
   <section class="frameWrap">
-    <iframe id="frame" src="../index.html?from=editor" title="Homepage Preview" loading="eager"></iframe>
+    <iframe id="frame" src="../index.php?from=editor" title="Homepage Preview" loading="eager"></iframe>
     <div class="overlay">
       <div id="marker" class="marker" style="display:none"></div>
     </div>
