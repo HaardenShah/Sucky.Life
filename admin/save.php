@@ -1,181 +1,125 @@
 <?php
+declare(strict_types=1);
+
 /**
- * admin/save.php — Persist an egg + handle uploads + position updates
- * - Requires admin session
- * - CSRF protected (skipped for quiet autosave only)
- * - Fields: title, caption, alt, body, draft, published_at, pos_left, pos_top
- * - Media: image_url|image_file, audio_url|audio_file, video_url|video_file
- * - Image pipeline: responsive WebP variants (-640/-1024/-1600) if GD+WebP
- * - Video: poster JPG via ffmpeg (if available)
- * - Audio: loudness normalization via ffmpeg (if available)
- * - Response: JSON { ok: true, slug }
+ * admin/save.php (SQLite-backed)
+ * Create/update an egg. Accepts URL fields and optional uploads.
  */
 
 header('Content-Type: application/json; charset=utf-8');
-ini_set('default_charset', 'UTF-8');
+ini_set('default_charset','UTF-8');
 
-require __DIR__ . '/config.php';
-require __DIR__ . '/util.php'; // for load_egg(), etc. (slugify fallback below)
+require __DIR__ . '/util.php';
 
 if (empty($_SESSION['authed'])) {
+  http_response_code(401);
+  echo json_encode(['ok'=>false,'error'=>'Not authenticated.']);
+  exit;
+}
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+  http_response_code(405);
+  echo json_encode(['ok'=>false,'error'=>'Method not allowed.']);
+  exit;
+}
+if (!hash_equals($_SESSION['csrf'] ?? '', $_POST['csrf'] ?? '')) {
   http_response_code(403);
-  echo json_encode(['ok' => false, 'error' => 'forbidden']);
+  echo json_encode(['ok'=>false,'error'=>'CSRF validation failed.']);
   exit;
 }
 
-/* ---------- CSRF (allow autosave to skip strict check) ---------- */
-$isAutosave = isset($_POST['autosave']);
-if (!$isAutosave) { require_csrf(); }
+/* ---------- Upload helpers (same behavior as file version) ---------- */
+
+function ensure_dir(string $path): void {
+  if (!is_dir($path)) @mkdir($path, 0775, true);
+}
+function unique_filename(string $dir, string $base, string $ext=''): string {
+  $base = preg_replace('~[^a-zA-Z0-9_-]+~', '-', $base) ?: 'file';
+  $ext  = $ext ? ('.'.ltrim($ext,'.')) : '';
+  $i=0; do {
+    $p = $dir.'/'.$base.($i?'-'.$i:'').$ext;
+    $i++;
+  } while (file_exists($p));
+  return $p;
+}
+function ext_from_mime(string $mime, string $fallback='bin'): string {
+  static $map = [
+    'image/webp'=>'webp','image/png'=>'png','image/jpeg'=>'jpg','image/jpg'=>'jpg','image/gif'=>'gif','image/svg+xml'=>'svg',
+    'audio/mpeg'=>'mp3','audio/mp4'=>'m4a','audio/wav'=>'wav','audio/ogg'=>'ogg','audio/webm'=>'weba',
+    'video/mp4'=>'mp4','video/webm'=>'webm','video/ogg'=>'ogv',
+  ];
+  return $map[$mime] ?? $fallback;
+}
+function handle_upload(string $type, string $field, string $uploadsDir, string $uploadsUrl): ?string {
+  if (empty($_FILES[$field]) || ($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) return null;
+  $f = $_FILES[$field];
+  if (($f['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) return null;
+  if (!is_uploaded_file($f['tmp_name'])) return null;
+
+  $mime = mime_content_type($f['tmp_name']) ?: '';
+  $ok = match($type){
+    'image' => str_starts_with($mime,'image/'),
+    'audio' => str_starts_with($mime,'audio/'),
+    'video' => str_starts_with($mime,'video/'),
+    default => false
+  };
+  if (!$ok) return null;
+
+  $orig = (string)($f['name'] ?? '');
+  $base = pathinfo($orig, PATHINFO_FILENAME) ?: $type.'-'.date('Ymd-His');
+  $ext  = strtolower(pathinfo($orig, PATHINFO_EXTENSION) ?: ext_from_mime($mime, $type==='image'?'webp':($type==='audio'?'mp3':'mp4')));
+
+  ensure_dir($uploadsDir);
+  $destAbs = unique_filename($uploadsDir, $base, $ext);
+  if (!@move_uploaded_file($f['tmp_name'], $destAbs)) return null;
+  @chmod($destAbs, 0644);
+
+  $rel = ltrim(str_replace('\\','/', substr($destAbs, strlen($uploadsDir))), '/');
+  return rtrim($uploadsUrl,'/').'/'.$rel;
+}
+
+/* ---------- Paths for uploads ---------- */
+$ROOT        = realpath(__DIR__.'/..') ?: dirname(__DIR__);
+$UPLOADS_DIR = $ROOT . '/assets/uploads';
+$UPLOADS_URL = '/assets/uploads';
+ensure_dir($UPLOADS_DIR);
 
 /* ---------- Inputs ---------- */
-$slug   = trim($_POST['slug'] ?? '');
-$title  = trim($_POST['title'] ?? '');
-$caption= trim($_POST['caption'] ?? '');
-$alt    = trim($_POST['alt'] ?? '');
-$body   = $_POST['body'] ?? '';
-$draft  = isset($_POST['draft']);
-$published_at = trim($_POST['published_at'] ?? '');
+$incomingSlug = trim((string)($_POST['slug'] ?? ''));
+$title        = trim((string)($_POST['title'] ?? ''));
+$caption      = trim((string)($_POST['caption'] ?? ''));
+$alt          = trim((string)($_POST['alt'] ?? ''));
+$body         = (string)($_POST['body'] ?? '');
+$draft        = !empty($_POST['draft']);
+$published_at = trim((string)($_POST['published_at'] ?? ''));
 
-$pos_left = isset($_POST['pos_left']) ? floatval($_POST['pos_left']) : null;
-$pos_top  = isset($_POST['pos_top'])  ? floatval($_POST['pos_top'])  : null;
+$image_url_in = trim((string)($_POST['image_url'] ?? ''));
+$audio_url_in = trim((string)($_POST['audio_url'] ?? ''));
+$video_url_in = trim((string)($_POST['video_url'] ?? ''));
 
-$image_url = trim($_POST['image_url'] ?? '');
-$audio_url = trim($_POST['audio_url'] ?? '');
-$video_url = trim($_POST['video_url'] ?? '');
+/* ---------- File uploads (override if present) ---------- */
+$image_url = handle_upload('image','image_file',$UPLOADS_DIR,$UPLOADS_URL) ?? $image_url_in;
+$audio_url = handle_upload('audio','audio_file',$UPLOADS_DIR,$UPLOADS_URL) ?? $audio_url_in;
+$video_url = handle_upload('video','video_file',$UPLOADS_DIR,$UPLOADS_URL) ?? $video_url_in;
 
-/* ---------- Paths ---------- */
-$DATA_DIR = __DIR__ . '/../eggs/data';
-$UP_DIR   = __DIR__ . '/../assets/uploads';
-@mkdir($DATA_DIR, 0775, true);
-@mkdir($UP_DIR,   0775, true);
-
-/* ---------- Helpers ---------- */
-if (!function_exists('slugify')) {
-  function slugify($s) {
-    $s = @iconv('UTF-8', 'ASCII//TRANSLIT', $s);
-    $s = preg_replace('~[^a-zA-Z0-9]+~', '-', $s);
-    $s = strtolower(trim($s, '-'));
-    return $s ?: bin2hex(random_bytes(4));
-  }
-}
-function web_path($abs){ $root = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/'); return str_replace($root, '', $abs); }
-
-function move_upload($field, array $allowedTypes) {
-  global $UP_DIR;
-  if (empty($_FILES[$field]) || $_FILES[$field]['error'] !== UPLOAD_ERR_OK) return null;
-  $tmp  = $_FILES[$field]['tmp_name'];
-  $name = $_FILES[$field]['name'];
-  $mime = mime_content_type($tmp) ?: '';
-  $type = strtok($mime, '/'); // image|audio|video|...
-  if (!in_array($type, $allowedTypes, true)) return null;
-
-  $ext  = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-  $base = slugify(pathinfo($name, PATHINFO_FILENAME));
-  $safe = $base . '-' . substr(bin2hex(random_bytes(4)),0,6) . '.' . $ext;
-  $dest = $UP_DIR . '/' . $safe;
-
-  if (!@move_uploaded_file($tmp, $dest)) return null;
-  return '/assets/uploads/' . $safe;
-}
-
-function has_gd_webp(){ return function_exists('imagewebp') && function_exists('imagecreatetruecolor'); }
-function make_responsive_webp_variants($imageWebPath){
-  if (!has_gd_webp()) return [];
-  $abs = ($_SERVER['DOCUMENT_ROOT'] ?? '') . $imageWebPath;
-  if (!is_file($abs)) return [];
-  $info = @getimagesize($abs); if (!$info) return [];
-  [$w,$h,$type] = $info;
-
-  switch ($type) {
-    case IMAGETYPE_JPEG: $src = @imagecreatefromjpeg($abs); break;
-    case IMAGETYPE_PNG:  $src = @imagecreatefrompng($abs); break;
-    case IMAGETYPE_WEBP: $src = @imagecreatefromwebp($abs); break;
-    default: $src = null;
-  }
-  if (!$src) return [];
-  $sizes = [640,1024,1600]; $out = []; $pi = pathinfo($abs);
-  foreach($sizes as $s){
-    $ratio=$h/$w; $nw=$s; $nh=(int)round($s*$ratio);
-    $dst=imagecreatetruecolor($nw,$nh);
-    if ($type===IMAGETYPE_PNG){ imagealphablending($dst,false); imagesavealpha($dst,true); }
-    imagecopyresampled($dst,$src,0,0,0,0,$nw,$nh,$w,$h);
-    $webpAbs=$pi['dirname'].'/'.$pi['filename'].'-'.$s.'.webp';
-    @imagewebp($dst,$webpAbs,80); imagedestroy($dst);
-    if (is_file($webpAbs)) $out[] = web_path($webpAbs);
-  }
-  imagedestroy($src);
-  return $out;
-}
-
-function has_ffmpeg(){ $o=@shell_exec('which ffmpeg 2>/dev/null'); return !empty($o); }
-function ffmpeg_poster($videoWebPath){
-  if (!has_ffmpeg()) return null;
-  $abs = ($_SERVER['DOCUMENT_ROOT'] ?? '') . $videoWebPath;
-  if (!is_file($abs)) return null;
-  $pi  = pathinfo($abs);
-  $out = $pi['dirname'].'/'.$pi['filename'].'-poster.jpg';
-  @shell_exec('ffmpeg -y -i '.escapeshellarg($abs).' -ss 00:00:01.000 -vframes 1 '.escapeshellarg($out).' 2>/dev/null');
-  return is_file($out) ? web_path($out) : null;
-}
-function ffmpeg_loudnorm($audioWebPath){
-  if (!has_ffmpeg()) return null;
-  $abs = ($_SERVER['DOCUMENT_ROOT'] ?? '') . $audioWebPath;
-  if (!is_file($abs)) return null;
-  $pi  = pathinfo($abs);
-  $out = $pi['dirname'].'/'.$pi['filename'].'-norm.mp3';
-  @shell_exec('ffmpeg -y -i '.escapeshellarg($abs).' -filter:a loudnorm=I=-14:TP=-1.5:LRA=11 -ar 44100 '.escapeshellarg($out).' 2>/dev/null');
-  return is_file($out) ? web_path($out) : null;
-}
-
-/* ---------- Slug ---------- */
-if ($slug === '' && $title !== '') $slug = slugify($title);
-if ($slug === '')                 $slug = bin2hex(random_bytes(4));
-
-/* ---------- Move uploads (if any) ---------- */
-$upImage = move_upload('image_file', ['image']);
-$upAudio = move_upload('audio_file', ['audio']);
-$upVideo = move_upload('video_file', ['video']);
-
-if ($upImage) $image_url = $upImage;
-if ($upAudio) $audio_url = $upAudio;
-if ($upVideo) $video_url = $upVideo;
-
-/* ---------- Media post-processing ---------- */
-$variants = [];
-if ($image_url) { $variants = make_responsive_webp_variants($image_url); }
-$poster = '';
-if ($video_url) { $poster = ffmpeg_poster($video_url) ?: ''; }
-if ($audio_url) { $norm = ffmpeg_loudnorm($audio_url); if ($norm) $audio_url = $norm; }
-
-/* ---------- Load existing egg (if any) ---------- */
-$FILE = $DATA_DIR . '/' . $slug . '.json';
-$egg  = is_file($FILE) ? (json_decode(@file_get_contents($FILE), true) ?: []) : [];
-
-/* ---------- Apply updates ---------- */
-if ($title !== '')   $egg['title'] = $title;
-if ($caption !== '') $egg['caption'] = $caption;
-if ($alt !== '')     $egg['alt'] = $alt;
-if ($body !== '')    $egg['body'] = $body;
-
-if ($image_url !== '') $egg['image'] = $image_url;
-if ($video_url !== '') $egg['video'] = $video_url;
-if ($poster !== '')    $egg['poster'] = $poster;
-if ($audio_url !== '') $egg['audio']  = $audio_url;
-
-if (!empty($variants)) $egg['image_variants'] = $variants;
-
+/* ---------- Compose egg ---------- */
+$egg = [
+  'slug'         => $incomingSlug,
+  'title'        => $title,
+  'caption'      => $caption,
+  'alt'          => $alt,
+  'body'         => $body,
+  'image'        => $image_url,
+  'audio'        => $audio_url,
+  'video'        => $video_url,
+  'draft'        => $draft ? 1 : 0,
+];
 if ($published_at !== '') $egg['published_at'] = $published_at;
-$egg['draft'] = $draft;
 
-/* Position updates from Visual Editor */
-if ($pos_left !== null) $egg['pos_left'] = $pos_left;
-if ($pos_top  !== null) $egg['pos_top']  = $pos_top;
-
-/* ---------- Persist ---------- */
-if (!@file_put_contents($FILE, json_encode($egg, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES))) {
-  echo json_encode(['ok'=>false, 'error'=>'write_failed']);
-  exit;
+/* ---------- Persist via repo ---------- */
+try {
+  $saved = repo()->save($egg);
+  echo json_encode(['ok'=>true,'slug'=>$saved['slug'],'data'=>$saved], JSON_UNESCAPED_SLASHES);
+} catch (Throwable $e) {
+  http_response_code(500);
+  echo json_encode(['ok'=>false,'error'=>$e->getMessage()]);
 }
-
-/* ---------- Respond ---------- */
-echo json_encode(['ok' => true, 'slug' => $slug]);

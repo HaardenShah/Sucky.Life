@@ -1,20 +1,47 @@
 <?php
-function slugify(string $s): string {
-  $s = strtolower(trim($s));
-  $s = preg_replace('~[^a-z0-9]+~','-',$s);
-  $s = trim($s,'-');
-  return $s ?: bin2hex(random_bytes(4));
+declare(strict_types=1);
+
+/**
+ * admin/util.php
+ * Shared helpers: sessions, CSRF, repo access, and legacy-compatible wrappers.
+ */
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+  session_start();
 }
-function data_dir(): string { return __DIR__ . '/../eggs/data'; }
+
+/* ---------- CSRF ---------- */
+function csrf_token(): string {
+  if (empty($_SESSION['csrf'])) {
+    $_SESSION['csrf'] = bin2hex(random_bytes(16));
+  }
+  return $_SESSION['csrf'];
+}
+function csrf_input(): string {
+  $v = htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8');
+  return '<input type="hidden" name="csrf" value="'.$v.'">';
+}
+
+/* ---------- Repository bootstrapping ---------- */
+require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/storage/SqlEggRepo.php';
+
+/** @return EggRepository */
+function repo(): EggRepository {
+  static $repo = null;
+  if ($repo instanceof EggRepository) return $repo;
+  $repo = new SqlEggRepo(sucky_pdo());
+  return $repo;
+}
+
+/* ---------- Legacy-compatible wrappers used by templates ---------- */
+
+/** @return string[] */
 function list_eggs(): array {
-  $dir = data_dir(); if(!is_dir($dir)) return [];
-  $out = [];
-  foreach (glob($dir.'/*.json') as $f) { $out[] = basename($f, '.json'); }
-  sort($out, SORT_NATURAL|SORT_FLAG_CASE);
-  return $out;
+  return repo()->list();
 }
+
+/** @return array|null */
 function load_egg(string $slug): ?array {
-  $f = data_dir().'/'.$slug.'.json';
-  if(!is_file($f)) return null;
-  return json_decode(@file_get_contents($f), true) ?: [];
+  return repo()->get($slug);
 }
