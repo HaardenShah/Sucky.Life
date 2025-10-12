@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
 
+require __DIR__ . '/config.php';
 require __DIR__ . '/util.php';
 
 if (empty($_SESSION['authed'])) {
@@ -30,17 +31,11 @@ if ($slug === '' || $new === '') {
   exit;
 }
 
-try {
-  $ok = repo()->rename($slug, $new);
-  if (!$ok) {
-    http_response_code(404);
-    echo json_encode(['ok'=>false,'error'=>'Egg not found or rename failed.']);
-    exit;
-  }
-  // Return the final slug actually set (might be suffixed for uniqueness)
-  $final = repo()->get($new) ? $new : $slug; // best effort
-  echo json_encode(['ok'=>true,'slug'=>$final]);
-} catch (Throwable $e) {
-  http_response_code(500);
-  echo json_encode(['ok'=>false,'error'=>$e->getMessage()]);
+$final = rename_egg($slug, $new);
+if ($final === false) {
+  http_response_code(404);
+  echo json_encode(['ok'=>false,'error'=>'Egg not found or rename failed.']);
+  exit;
 }
+
+echo json_encode(['ok'=>true,'slug'=>$final]);

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
 
+require __DIR__ . '/config.php';
 require __DIR__ . '/util.php';
 
 if (empty($_SESSION['authed'])) {
@@ -28,15 +29,11 @@ if ($slug === '') {
   exit;
 }
 
-try {
-  $ok = repo()->delete($slug);
-  if (!$ok) {
-    http_response_code(404);
-    echo json_encode(['ok'=>false,'error'=>'Egg not found.']);
-    exit;
-  }
-  echo json_encode(['ok'=>true]);
-} catch (Throwable $e) {
-  http_response_code(500);
-  echo json_encode(['ok'=>false,'error'=>$e->getMessage()]);
+$ok = delete_egg($slug);
+if (!$ok) {
+  http_response_code(404);
+  echo json_encode(['ok'=>false,'error'=>'Egg not found.']);
+  exit;
 }
+
+echo json_encode(['ok'=>true]);
