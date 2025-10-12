@@ -1,19 +1,7 @@
 <?php
 /**
  * admin/index.php
- *
- * Admin dashboard for creating, editing, renaming, and deleting “eggs”.
- * - Server-side: loads current egg list and (optionally) one egg’s data.
- * - Client-side: handles New, Save (via /admin/save.php), Rename (/admin/rename.php),
- *   Delete (/admin/delete.php), media picker (/admin/media_list.php), previews, search & filter.
- *
- * Security:
- * - Requires authenticated session (checked via $_SESSION['authed']).
- * - All write actions require a CSRF token. We surface it to JS via `$CSRF` below.
- *
- * Notes:
- * - This file intentionally stays DB-less. Eggs live as JSON in /eggs/data/{slug}.json
- * - Keep comments focused on “why” decisions; code paths are otherwise straightforward.
+ * Admin dashboard (CSP-safe, no inline JS).
  */
 
 header('Content-Type: text/html; charset=utf-8');
@@ -22,21 +10,18 @@ ini_set('default_charset','UTF-8');
 require __DIR__ . '/config.php';
 require __DIR__ . '/util.php';
 
-// Guard: must be logged in.
 if (empty($_SESSION['authed'])) {
   header('Location: /admin/login.php');
   exit;
 }
 
-// Load eggs and pick an active slug (if present).
-$eggs = list_eggs(); // array of slugs
+$eggs = list_eggs();
 $slug = $_GET['slug'] ?? ($eggs[0] ?? '');
 $data = $slug ? (load_egg($slug) ?? []) : [];
 
-// Surface basic site info + CSRF for the client.
 $site_name   = $SITE_NAME;
 $site_domain = $SITE_DOMAIN;
-$CSRF        = csrf_token(); // prefer one source of truth for client JS
+$CSRF        = csrf_token();
 ?>
 <!doctype html>
 <html lang="en">
@@ -102,7 +87,7 @@ $CSRF        = csrf_token(); // prefer one source of truth for client JS
     <aside class="panel side">
       <div class="sec-title">
         <h2>Eggs</h2>
-        <button class="btn small brand" id="btnNew">+ New</button>
+        <button class="btn small brand" id="btnNew" type="button">+ New</button>
       </div>
       <input type="text" id="eggSearch" placeholder="Search..." style="width:100%;padding:10px;border-radius:10px;border:1px solid #2a2f42;background:#0b1020;color:#f0f4ff;margin:6px 0 10px">
       <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#9aa2b8">
@@ -239,261 +224,7 @@ $CSRF        = csrf_token(); // prefer one source of truth for client JS
     </div>
   </div>
 
-<script>
-/* ---------- Utilities ---------- */
-const $  = (s)=>document.querySelector(s);
-const $$ = (s)=>Array.from(document.querySelectorAll(s));
-const CSRF = document.body.getAttribute('data-csrf') || '';
-
-function showToast(m){ console.log('[admin]', m); }
-
-async function jsonFetch(url, opts = {}) {
-  // Wrapper that returns { ok:boolean, data?:any, error?:string, status:number }
-  try {
-    const r = await fetch(url, opts);
-    const status = r.status;
-    // Try to parse JSON; if it fails, surface body text for debugging.
-    let data = null, text = '';
-    try { data = await r.json(); }
-    catch { text = await r.text(); }
-    const ok = !!(data && typeof data === 'object' && (data.ok === true || data.success === true));
-    return ok ? { ok:true, data, status } : { ok:false, data, error:(data && (data.error||data.message)) || text || 'Request failed', status };
-  } catch (e) {
-    return { ok:false, error:String(e||'Network error'), status:0 };
-  }
-}
-
-/* ---------- New Egg ---------- */
-/**
- * Creates a draft egg with minimal fields so the user lands on its edit page.
- * We include CSRF and leave slug empty so the server can derive it from title.
- */
-$('#btnNew')?.addEventListener('click', async ()=>{
-  const title = prompt('Title for the new egg?');
-  if (!title) return;
-
-  const btn = $('#btnNew');
-  btn.disabled = true;
-
-  const fd = new FormData();
-  fd.set('slug', '');            // let server derive slug from title
-  fd.set('title', title);
-  fd.set('caption','');
-  fd.set('alt','');
-  fd.set('body','');
-  fd.set('draft','1');           // new eggs default to draft to avoid accidental publish
-  fd.set('csrf', CSRF);
-
-  const res = await jsonFetch('/admin/save.php', { method:'POST', body:fd });
-
-  btn.disabled = false;
-
-  if (res.ok && res.data && (res.data.slug || (res.data.data && res.data.data.slug))) {
-    const newSlug = res.data.slug || (res.data.data && res.data.data.slug);
-    location.href = '?slug=' + encodeURIComponent(newSlug);
-    return;
-  }
-
-  // Helpful diagnostics for common causes (e.g., CSRF/session mismatch).
-  alert('Could not create egg.' + (res.error ? ('\n\nDetails: ' + res.error) : ''));
-});
-
-/* ---------- Previews (image/audio/video URLs or uploads) ---------- */
-const fldImage=$('#fldImage'), fldAudio=$('#fldAudio'), fldVideo=$('#fldVideo');
-const prevImage=$('#prevImage'), prevAudio=$('#prevAudio'), prevVideo=$('#prevVideo');
-
-function updatePreview(kind){
-  if(kind==='image'){ prevImage.innerHTML = fldImage?.value ? `<img src="${fldImage.value}" alt="preview">` : ''; }
-  if(kind==='audio'){ prevAudio.innerHTML = fldAudio?.value ? `<audio controls src="${fldAudio.value}"></audio>` : ''; }
-  if(kind==='video'){ prevVideo.innerHTML = fldVideo?.value ? `<video controls src="${fldVideo.value}"></video>` : ''; }
-}
-
-$('#clearImage')?.addEventListener('click', ()=>{ if(fldImage){ fldImage.value=''; updatePreview('image'); } });
-$('#clearAudio')?.addEventListener('click', ()=>{ if(fldAudio){ fldAudio.value=''; updatePreview('audio'); } });
-$('#clearVideo')?.addEventListener('click', ()=>{ if(fldVideo){ fldVideo.value=''; updatePreview('video'); } });
-fldImage?.addEventListener('change', ()=>updatePreview('image'));
-fldAudio?.addEventListener('change', ()=>updatePreview('audio'));
-fldVideo?.addEventListener('change', ()=>updatePreview('video'));
-
-$('#upImage')?.addEventListener('change', e=>{ if(e.target.files?.[0]){ fldImage.value=''; updatePreview('image'); }});
-$('#upAudio')?.addEventListener('change', e=>{ if(e.target.files?.[0]){ fldAudio.value=''; updatePreview('audio'); }});
-$('#upVideo')?.addEventListener('change', e=>{ if(e.target.files?.[0]){ fldVideo.value=''; updatePreview('video'); }});
-
-/* ---------- Drag & Drop for uploads ---------- */
-function wireDrop(zoneSel, inputSel){
-  const zone=$(zoneSel), input=$(inputSel);
-  if(!zone || !input) return;
-
-  ['dragenter','dragover'].forEach(ev=> zone.addEventListener(ev, e=>{
-    e.preventDefault();
-    e.dataTransfer.dropEffect='copy';
-    zone.classList.add('drag');
-  }));
-  ['dragleave','drop'].forEach(ev=> zone.addEventListener(ev, e=>{
-    e.preventDefault();
-    zone.classList.remove('drag');
-  }));
-  zone.addEventListener('drop', e=>{
-    const f=e.dataTransfer.files?.[0]; if(!f) return;
-    input.files=e.dataTransfer.files;
-    input.dispatchEvent(new Event('change',{bubbles:true}));
-  });
-}
-wireDrop('#dropImage','#upImage');
-wireDrop('#dropAudio','#upAudio');
-wireDrop('#dropVideo','#upVideo');
-
-/* ---------- Media Picker ---------- */
-let pickTarget=null;
-const picker=$('#picker'), pickerGrid=$('#pickerGrid'), pickType=$('#pickType');
-$$('[data-pick]').forEach(btn=> btn.addEventListener('click', ()=>{
-  pickTarget=btn.getAttribute('data-pick');
-  picker.classList.add('show');
-  picker.setAttribute('aria-hidden','false');
-  loadMedia(pickTarget);
-}));
-$('#pickClose')?.addEventListener('click', ()=>{ picker.classList.remove('show'); picker.setAttribute('aria-hidden','true'); });
-$('.modal .backdrop')?.addEventListener('click', ()=>{ picker.classList.remove('show'); picker.setAttribute('aria-hidden','true'); });
-pickType?.addEventListener('change', ()=> loadMedia(pickType.value));
-
-async function loadMedia(kind){
-  pickerGrid.innerHTML='<div class="muted">Loading...</div>';
-  const r = await jsonFetch('/admin/media_list.php?kind='+encodeURIComponent(kind||'all'));
-  if(!r.ok || !r.data){ pickerGrid.innerHTML='<div class="danger">Failed to load uploads.</div>'; return; }
-
-  const items = r.data.files || [];
-  if(!items.length){ pickerGrid.innerHTML='<div class="muted">Nothing here yet.</div>'; return; }
-
-  pickerGrid.innerHTML='';
-  for(const it of items){
-    const type=it.type||'file', url=it.url, name=it.name||url.split('/').pop();
-    const t=document.createElement('div'); t.className='tile';
-    t.innerHTML = `
-      <div class="thumb">
-        ${
-          type==='image' ? `<img src="${url}" alt="">` :
-          type==='audio' ? `<div class="muted">🎵 Audio</div>` :
-          type==='video' ? `<div class="muted">🎬 Video</div>` :
-                           `<div class="muted">File</div>`
-        }
-      </div>
-      <div class="meta"><span title="${name}">${name}</span><span>${type}</span></div>
-    `;
-    t.addEventListener('click', ()=>{
-      if(pickTarget==='image' && fldImage){ fldImage.value=url; updatePreview('image'); }
-      if(pickTarget==='audio' && fldAudio){ fldAudio.value=url; updatePreview('audio'); }
-      if(pickTarget==='video' && fldVideo){ fldVideo.value=url; updatePreview('video'); }
-      picker.classList.remove('show'); picker.setAttribute('aria-hidden','true');
-    });
-    pickerGrid.appendChild(t);
-  }
-}
-
-/* ---------- Save (AJAX) ---------- */
-$('#eggForm')?.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const form = e.currentTarget;
-  const btn  = $('#btnSave');
-  btn && (btn.disabled = true);
-
-  const fd=new FormData(form);
-  // Ensure CSRF is present (fallback if template or session changed).
-  if (!fd.get('csrf') && CSRF) fd.set('csrf', CSRF);
-
-  const r = await jsonFetch('/admin/save.php', { method:'POST', body:fd });
-
-  btn && (btn.disabled = false);
-
-  if (r.ok) {
-    const newSlug = (r.data && r.data.slug) || fd.get('slug');
-    showToast('Saved ✓');
-
-    // If slug changed (e.g., first save generated derived slug), hard navigate.
-    const currentSlug = <?= json_encode($slug) ?>;
-    if (newSlug && newSlug !== currentSlug) {
-      location.href='?slug='+encodeURIComponent(newSlug);
-    } else {
-      // Keep it simple and refresh to re-pull server-rendered list.
-      location.reload();
-    }
-  } else {
-    alert('Save failed.' + (r.error ? ('\n\nDetails: ' + r.error) : ''));
-  }
-});
-
-/* ---------- Rename ---------- */
-$('#btnRename')?.addEventListener('click', async ()=>{
-  const current = <?= json_encode($slug) ?>;
-  const next = prompt('New slug (lowercase, spaces → dashes):', current);
-  if (!next || next === current) return;
-
-  const body = new URLSearchParams({ slug: current, new_slug: next, csrf: CSRF });
-  const r = await jsonFetch('/admin/rename.php', {
-    method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body
-  });
-
-  if (r.ok && r.data) {
-    const target = r.data.slug || next;
-    location.href='?slug='+encodeURIComponent(target);
-  } else {
-    alert((r && r.error) ? r.error : 'Rename failed.');
-  }
-});
-
-/* ---------- Delete ---------- */
-$('#btnDelete')?.addEventListener('click', async ()=>{
-  const current = <?= json_encode($slug) ?>;
-  if (!current) return;
-
-  const areYouSure = confirm(`Delete "${current}"? This cannot be undone.`);
-  if (!areYouSure) return;
-
-  const body = new URLSearchParams({ slug: current, csrf: CSRF });
-  const r = await jsonFetch('/admin/delete.php', {
-    method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body
-  });
-
-  if (r.ok) {
-    // If deletion succeeded, send user to the first remaining egg or clear view.
-    const first = (document.querySelector('#eggList li[data-slug]')?.getAttribute('data-slug')) || '';
-    location.href = first ? ('?slug='+encodeURIComponent(first)) : location.pathname;
-  } else {
-    alert((r && r.error) ? r.error : 'Delete failed.');
-  }
-});
-
-/* ---------- Search + Draft filter (client-side) ---------- */
-(function wireSearchAndFilter(){
-  const list = $('#eggList');
-  const search = $('#eggSearch');
-  const draftsOnly = $('#filterDrafts');
-
-  if (!list || !search || !draftsOnly) return;
-
-  function applyFilter(){
-    const q = (search.value || '').toLowerCase().trim();
-    const wantDraftsOnly = draftsOnly.checked;
-
-    $$('#eggList li[data-slug]').forEach(li=>{
-      const title = (li.getAttribute('data-title') || '').toLowerCase();
-      const slug  = (li.getAttribute('data-slug') || '').toLowerCase();
-      const isDraft = li.getAttribute('data-draft') === '1';
-
-      const matchText = !q || title.includes(q) || slug.includes(q);
-      const matchDraft = !wantDraftsOnly || isDraft;
-
-      li.style.display = (matchText && matchDraft) ? '' : 'none';
-    });
-  }
-
-  search.addEventListener('input', applyFilter);
-  draftsOnly.addEventListener('change', applyFilter);
-  applyFilter(); // initial
-})();
-</script>
+  <!-- Load CSP-safe external JS -->
+  <script src="/admin/admin.js" defer></script>
 </body>
 </html>

@@ -40,7 +40,7 @@ if (!$NEEDS_SETUP) {
   $GATE_HASH   = $site['visitor_password_hash'] ?? '';
 }
 
-/* ---------- CSRF helpers ---------- */
+/* ---------- CSRF helpers ---------- 
 function csrf_token(): string {
   if (empty($_SESSION['csrf'])) {
     $_SESSION['csrf'] = bin2hex(random_bytes(32));
@@ -54,6 +54,7 @@ function require_csrf(): void {
   $ok = !empty($_POST['csrf']) && hash_equals($_SESSION['csrf'] ?? '', $_POST['csrf']);
   if (!$ok) { http_response_code(400); exit('Bad CSRF'); }
 }
+*/
 
 /* ---------- Simple rate limiting (per session) ---------- */
 function rate_limit(string $key, int $limit, int $windowSec): bool {
