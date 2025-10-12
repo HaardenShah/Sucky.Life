@@ -14,7 +14,33 @@
 header('Content-Type: text/html; charset=utf-8');
 ini_set('default_charset', 'UTF-8');
 
-require __DIR__ . '/admin/config.php';
+// --- robust admin bootstrap (no hardcoded absolute paths) ---
+declare(strict_types=1);
+
+$ADMIN_DIR = realpath(__DIR__ . '/admin');
+if ($ADMIN_DIR === false) {
+  http_response_code(500);
+  echo "Admin directory not found: " . __DIR__ . "/admin";
+  exit;
+}
+
+$CONFIG = $ADMIN_DIR . '/config.php';
+$UTIL   = $ADMIN_DIR . '/util.php';
+
+if (!is_file($CONFIG)) {
+  http_response_code(500);
+  echo "Missing admin config: $CONFIG";
+  exit;
+}
+if (!is_readable($CONFIG)) {
+  http_response_code(500);
+  echo "Admin config not readable: $CONFIG";
+  exit;
+}
+
+require_once $CONFIG;
+require_once $UTIL;   // util.php defines csrf helpers & repo access
+
 
 if ($NEEDS_SETUP) {
   header('Location: /admin/setup.php');
