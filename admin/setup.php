@@ -1,120 +1,196 @@
 <?php
-declare(strict_types=1);
+require_once '../config.php';
 
-/**
- * admin/setup.php
- * One-time environment/setup checks for the file-storage variant.
- * - Ensures eggs/data and assets/uploads exist and are writable.
- * - Can be called via GET (HTML) or POST (AJAX/JSON).
- */
-
-header('Content-Type: text/html; charset=utf-8');
-ini_set('default_charset','UTF-8');
-
-require __DIR__ . '/config.php';
-require __DIR__ . '/util.php';
-
-if (session_status() !== PHP_SESSION_ACTIVE) {
-  session_start();
+// Redirect if already setup
+if (isSetupComplete()) {
+    header('Location: /admin/login.php');
+    exit;
 }
 
-// Must be logged-in to run setup (keeps this behind auth).
-if (empty($_SESSION['authed'])) {
-  header('Location: /admin/login.php');
-  exit;
+$error = '';
+$success = false;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $siteName = trim($_POST['site_name'] ?? '');
+    $domain = trim($_POST['domain'] ?? '');
+    $adminPassword = $_POST['admin_password'] ?? '';
+    $confirmPassword = $_POST['confirm_password'] ?? '';
+
+    if (empty($siteName) || empty($domain) || empty($adminPassword)) {
+        $error = 'All fields are required';
+    } elseif ($adminPassword !== $confirmPassword) {
+        $error = 'Passwords do not match';
+    } elseif (strlen($adminPassword) < 8) {
+        $error = 'Password must be at least 8 characters';
+    } else {
+        // Create directories
+        $dirs = [DATA_PATH, EGGS_PATH, UPLOADS_PATH];
+        foreach ($dirs as $dir) {
+            if (!is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+        }
+
+        // Save configuration
+        $config = [
+            'site_name' => $siteName,
+            'domain' => $domain,
+            'admin_password_hash' => password_hash($adminPassword, PASSWORD_DEFAULT),
+            'site_password_enabled' => false,
+            'setup_complete' => true
+        ];
+
+        if (saveConfig($config)) {
+            $success = true;
+        } else {
+            $error = 'Failed to save configuration';
+        }
+    }
 }
-
-$ROOT        = project_root();
-$DATA_DIR    = $ROOT . '/eggs/data';
-$UPLOADS_DIR = $ROOT . '/assets/uploads';
-
-function check_and_make(string $dir): array {
-  $ok = is_dir($dir) || @mkdir($dir, 0775, true);
-  $write = $ok && is_writable($dir);
-  return ['path'=>$dir, 'exists'=>$ok, 'writable'=>$write];
-}
-
-function respond_json(array $payload): void {
-  header('Content-Type: application/json; charset=utf-8');
-  echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-  exit;
-}
-
-if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-  // CSRF required for POST
-  if (!hash_equals($_SESSION['csrf'] ?? '', $_POST['csrf'] ?? '')) {
-    respond_json(['ok'=>false, 'error'=>'CSRF validation failed.']);
-  }
-
-  $eggs   = check_and_make($DATA_DIR);
-  $uploads= check_and_make($UPLOADS_DIR);
-
-  $problems = [];
-  foreach ([ $eggs, $uploads ] as $chk) {
-    if (!$chk['exists'])   $problems[] = "Directory missing: {$chk['path']}";
-    if (!$chk['writable']) $problems[] = "Directory not writable: {$chk['path']}";
-  }
-
-  if ($problems) {
-    respond_json(['ok'=>false, 'error'=>implode('; ', $problems), 'checks'=>['eggs'=>$eggs,'uploads'=>$uploads]]);
-  }
-
-  // Touch a tiny file to confirm write
-  $probe = $DATA_DIR . '/.__probe';
-  @file_put_contents($probe, 'ok');
-  $probe_ok = is_file($probe);
-  if ($probe_ok) @unlink($probe);
-
-  if (!$probe_ok) {
-    respond_json(['ok'=>false, 'error'=>'Unable to write test file in eggs/data', 'checks'=>['eggs'=>$eggs,'uploads'=>$uploads]]);
-  }
-
-  respond_json(['ok'=>true, 'checks'=>['eggs'=>$eggs,'uploads'=>$uploads]]);
-  // no exit; respond_json already exited
-}
-
-// GET: show a tiny “Run Setup” page (useful if you visit directly)
 ?>
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Setup — <?= htmlspecialchars($SITE_NAME ?? 'sucky.life', ENT_QUOTES, 'UTF-8') ?></title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body{font-family:system-ui,Segoe UI,Inter,Arial;margin:2rem;line-height:1.5;color:#111}
-    button{padding:.6rem 1rem;border:1px solid #ccc;border-radius:8px;background:#f8f8f8;cursor:pointer}
-    pre{background:#f6f8fa;padding:1rem;border-radius:8px;overflow:auto}
-    .ok{color:#0a7}
-    .bad{color:#c00}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup - sucky.life</title>
+    <link rel="stylesheet" href="/assets/css/admin.css">
 </head>
-<body>
-  <h1>Environment setup</h1>
-  <p>This will create (if needed) and verify writability of:</p>
-  <ul>
-    <li><code><?= htmlspecialchars($DATA_DIR) ?></code></li>
-    <li><code><?= htmlspecialchars($UPLOADS_DIR) ?></code></li>
-  </ul>
+<body class="setup-page">
+    <div class="setup-container">
+        <div class="setup-card">
+            <div class="setup-header">
+                <h1 class="setup-title">✨ Welcome to sucky.life</h1>
+                <p class="setup-subtitle">Let's get your inside-joke website set up</p>
+            </div>
 
-  <form method="post" id="setupForm">
-    <?= csrf_input() ?>
-    <button type="submit">Run setup</button>
-  </form>
+            <?php if ($success): ?>
+                <div class="success-animation">
+                    <div class="checkmark">✓</div>
+                    <h2>All set!</h2>
+                    <p>Your site is ready to go.</p>
+                    <a href="/admin/login.php" class="btn btn-primary">Go to Admin Login</a>
+                </div>
+            <?php else: ?>
+                <form method="POST" class="setup-form">
+                    <?php if ($error): ?>
+                        <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
+                    <?php endif; ?>
 
-  <div id="out" style="margin-top:1rem"></div>
+                    <div class="form-group">
+                        <label for="site_name">Site Name</label>
+                        <input type="text" id="site_name" name="site_name" 
+                               value="<?php echo htmlspecialchars($_POST['site_name'] ?? 'sucky.life'); ?>" 
+                               required autofocus>
+                    </div>
 
-  <script>
-  document.getElementById('setupForm')?.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const r = await fetch(location.href, { method:'POST', body:fd });
-    const j = await r.json().catch(()=>({ok:false,error:'Invalid JSON'}));
-    const out = document.getElementById('out');
-    out.innerHTML = '<pre>'+JSON.stringify(j,null,2)+'</pre>';
-    if (j && j.ok) out.insertAdjacentHTML('afterbegin','<p class="ok">✓ Setup OK</p>');
-    else out.insertAdjacentHTML('afterbegin','<p class="bad">✗ Setup failed</p>');
-  });
-  </script>
+                    <div class="form-group">
+                        <label for="domain">Domain</label>
+                        <input type="text" id="domain" name="domain" 
+                               value="<?php echo htmlspecialchars($_POST['domain'] ?? 'sucky.life'); ?>" 
+                               required>
+                        <small>e.g., sucky.life or example.com</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="admin_password">Admin Password</label>
+                        <input type="password" id="admin_password" name="admin_password" 
+                               minlength="8" required>
+                        <small>Minimum 8 characters</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm Password</label>
+                        <input type="password" id="confirm_password" name="confirm_password" 
+                               minlength="8" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-large">Complete Setup</button>
+                </form>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <style>
+        .setup-page {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .setup-container {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .setup-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .setup-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .setup-title {
+            font-size: 2rem;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .setup-subtitle {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1rem;
+        }
+
+        .success-animation {
+            text-align: center;
+            animation: fadeIn 0.6s;
+        }
+
+        .checkmark {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: #fff;
+            animation: scaleUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes scaleUp {
+            from { transform: scale(0); }
+            to { transform: scale(1); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
 </body>
 </html>

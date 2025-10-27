@@ -1,0 +1,13 @@
+SCREECH AUDIO REQUIRED
+
+Please add your screech audio file as:
+/assets/audio/screech.mp3
+
+The audio should be:
+- MP3 format
+- A dramatic, visceral cry/screech sound
+- Ready to loop (seamless if possible)
+
+Recommended: Use a royalty-free sound effect or record your own dramatic screech!
+
+The site will not play audio until this file is added.

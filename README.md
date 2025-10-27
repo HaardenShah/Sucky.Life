@@ -1,178 +1,119 @@
----
+╔══════════════════════════════════════════════════════════════╗
+║                     sucky.life Website                       ║
+║              Inside-Joke Website Platform                    ║
+╚══════════════════════════════════════════════════════════════╝
 
-## 🥲 **sucky.life**
+📦 WHAT'S INCLUDED
 
-A lovingly over-engineered inside-joke website for our friend group.
-Built to immortalize every tragicomic moment — complete with hidden “eggs”, visceral crying audio, interactive tears, and a dead-serious admin panel.
+sucky-life-website.tar.gz - Complete website (21KB)
+  ├── 20+ PHP files (public site + admin panel)
+  ├── CSS stylesheets (public + admin)
+  ├── JavaScript (tears, hotspots, media picker)
+  └── Configuration & security files
 
----
+📄 DOCUMENTATION
 
-### 🧱 **Overview**
+INSTALLATION.md - Step-by-step setup guide
+FEATURES.md     - Complete feature overview
+README.md       - Full documentation (in archive)
 
-`sucky.life` is a PHP-based humor site featuring:
+🚀 QUICK START
 
-* A dramatic **screech button** with looping audio and animated tears.
-* **Hidden easter eggs** scattered across the homepage.
-* A sleek, modal-based viewer for each egg (images, videos, and audio supported).
-* A secure **admin panel** with full CRUD (create, read, update, delete) control for eggs.
-* A first-time **setup wizard** for easy configuration.
-* Drag-and-drop media uploads with automatic `.webp` conversion.
-* Visual egg placement via a live preview editor.
+1. Extract archive to web hosting
+2. Visit your domain (auto-redirects to setup)
+3. Complete 4-field setup wizard
+4. Upload screech audio to /assets/audio/screech.mp3
+5. Login and create your first easter egg!
 
-It’s built for shared hosting, no frameworks required — just drop it in and go.
+🎯 KEY FEATURES
 
----
+PUBLIC SITE:
+✓ Dramatic hero with "unleash the screech" button
+✓ Looping audio with mute/stop controls
+✓ Animated tears that repel from cursor
+✓ Hidden easter egg hotspots
+✓ Glass-card modals with media + stories
+✓ Optional password gate for privacy
 
-### ⚙️ **Installation**
+ADMIN PANEL:
+✓ Animated setup wizard (first run)
+✓ Visual egg placement tool
+✓ WYSIWYG-style editor
+✓ Drag-and-drop media uploads
+✓ Automatic WebP conversion
+✓ Draft system
+✓ Settings panel
 
-1. **Upload all files** to your hosting root or a subdirectory.
-2. Visit the site in your browser.
+⚙️ REQUIREMENTS
 
-   * The **setup wizard** appears automatically the first time.
-3. Enter:
+- PHP 7.4+
+- GD extension
+- Writable /data directory
 
-   * **Site name**
-   * **Domain**
-   * **Admin password** (you’ll be prompted to change it from the default)
-4. That’s it — the wizard creates all required config and data folders.
+💻 TECH STACK
 
----
+Backend:  PHP + file-based JSON storage
+Frontend: Vanilla JavaScript (no frameworks)
+Styling:  CSS3 with backdrop-filter effects
+Security: Bcrypt passwords + CSRF protection
 
-### 🔐 **Security**
+📁 FILE STRUCTURE
 
-* Passwords are stored as **SHA-256 hashes** in `/admin/password.json`.
-* All admin actions require authentication.
-* Direct access to internal files (e.g. `eggs/data/*.json`) is blocked.
-* Optionally hide drafts from the public by toggling in `/eggs/list.php`:
+admin/          - Admin panel (8 files)
+assets/
+  css/          - Stylesheets (main + admin)
+  js/           - JavaScript (main + admin-editor)
+  audio/        - Audio files (add screech.mp3)
+data/
+  eggs/         - Egg JSON files (auto-created)
+  uploads/      - User uploads (auto-created)
+config.php      - Core configuration
+index.php       - Homepage
+gate.php        - Optional password gate
 
-  ```php
-  const HIDE_DRAFTS = true;
-  ```
-* Uploaded media is sanitized, renamed, and converted to `.webp` for safety and speed.
+🎨 DESIGN PHILOSOPHY
 
----
+"Minimalist Apple-adjacent polish, chaotic on purpose"
+- Dark gradients and glass morphism
+- Smooth animations with spring physics
+- Premium feel with playful interactions
+- Clean UI, hidden complexity
 
-### 🧠 **Project Structure**
+🔒 SECURITY FEATURES
 
-```
-sucky.life/
-│
-├── index.php                 → Main landing page (screech + tears + egg loader)
-├── assets/
-│   ├── site.js               → Screech logic, tears animation, egg modals
-│   ├── style.css             → Shared visual styles
-│   └── media/                → Static images, icons, audio
-│
-├── admin/
-│   ├── index.php             → Main admin dashboard
-│   ├── login.php             → Admin authentication
-│   ├── setup.php             → One-time site configuration wizard
-│   ├── util.php              → Reusable backend helpers
-│   ├── save.php              → Handles egg creation / updates
-│   ├── delete.php            → Removes an egg
-│   ├── config.php            → Paths and globals
-│   ├── password.json         → Hashed admin password (auto-generated)
-│   └── data/                 → Internal configs and logs
-│
-├── eggs/
-│   ├── data/                 → Each egg is a JSON file (content + metadata)
-│   ├── list.php              → Public API listing all visible eggs
-│   ├── egg.php               → Modal renderer (polished “glass card”)
-│   └── uploads/              → Uploaded images, videos, and audio
-│
-└── README.md                 → You’re reading this.
-```
+✓ Password hashing (bcrypt)
+✓ CSRF tokens on all writes
+✓ Session-based authentication
+✓ CSP headers (no inline scripts)
+✓ Protected data directory
+✓ Input sanitization
 
----
+📝 USAGE WORKFLOW
 
-### 🎨 **Design Features**
+1. Create egg (title + content)
+2. Upload media (images/videos/audio)
+3. Place on site (visual tool)
+4. Publish (toggle draft off)
+5. Test on homepage!
 
-* **Glass card modal:** Subtle gradients, soft borders, and top color ribbon.
-* **Smooth animations:** Apple-like transitions for modals and interactions.
-* **Responsive scaling:** Layout adapts to all viewports (390px → 1280px+).
-* **Optimized assets:** Automatic `.webp` conversion and lazy loading.
-* **Accessibility:** Keyboard navigation + ARIA roles for interactive elements.
+🎭 PERFECT FOR
 
----
+- Friend group inside jokes
+- Private photo/video galleries
+- Interactive storytelling
+- Dramatic easter egg hunts
+- Chaotic scrapbooks
 
-### 🧰 **Admin Features**
+🆘 NEED HELP?
 
-#### 🖼️ Egg Manager
+Check the documentation files included:
+- INSTALLATION.md for setup issues
+- FEATURES.md for how things work
+- README.md (in archive) for everything
 
-* Add, rename, update, or delete eggs.
-* Drag-and-drop images or videos.
-* Assign **custom audio** per egg.
-* Toggle **draft mode** to hide an egg from public view.
-* Live-preview the homepage in an iframe.
-* Click to visually **place** an egg — it saves the viewport coordinates automatically.
+Built with love for friends who've seen some stuff.
+May your inside jokes echo through eternity! 🥚✨
 
-#### ⚙️ System Settings
-
-* Change password securely from inside the panel.
-* Auto-logout on inactivity.
-* Setup screen runs only once (then locks itself).
-
----
-
-### 🧩 **Egg JSON Schema**
-
-Each egg is stored as a `.json` file in `/eggs/data/`:
-
-```json
-{
-  "slug": "boneless-mystique",
-  "title": "Boneless Mystique",
-  "caption": "He swore it was boneless. Reader, it was not.",
-  "body": "Some bites crunch. Others crunch back.",
-  "image": "/eggs/uploads/boneless.webp",
-  "video": "",
-  "audio": "/eggs/uploads/chicken-scream.mp3",
-  "pos_left": 32.5,
-  "pos_top": 61.2,
-  "draft": false
-}
-```
-
----
-
-### 🧑‍💻 **Developer Notes**
-
-* No database — everything is **file-driven**.
-* Uses plain PHP + vanilla JS for simplicity and portability.
-* Designed to work on **shared hosting** (Apache, Nginx, or LiteSpeed).
-* `.htaccess` is optional — the host typically handles rewrites and MIME types.
-* All code is **UTF-8** safe (no broken emoji or character encoding issues).
-* Editing HTML/CSS/JS is safe — every major section is commented.
-
----
-
-### 🪄 **Recent Major Updates**
-
-| Area                   | Description                                                              |
-| ---------------------- | ------------------------------------------------------------------------ |
-| 🧭 **Setup Wizard**    | Added full site initialization flow with password creation.              |
-| 🛠️ **Admin Panel**    | Modularized (split into login, index, save, delete). Easier maintenance. |
-| 🎨 **Egg Modals**      | Rebuilt with glass-card design, proper aspect ratios, better typography. |
-| 💾 **Data Handling**   | Switched to flexible egg discovery with fallback paths.                  |
-| 🔊 **Audio System**    | Mute/unmute button only visible when screech plays.                      |
-| 💧 **Tears Animation** | Cursor repels tears dynamically; synchronized to audio playback.         |
-| 🔐 **Security Layer**  | Password hashing, JSON validation, and draft visibility toggle.          |
-| 🪶 **Performance**     | `.webp` conversion + lazy loading + reduced JS CPU loops.                |
-
----
-
-### 🚀 **Future Enhancements**
-
-* Optional **multi-user** admin support.
-* Media compression queue for heavy uploads.
-* Egg clustering mode (for thematic grouping).
-* Public “random egg” shuffle button.
-
----
-
-### ❤️ **Credits**
-
-Built by a bunch of friends who take jokes too seriously.
-Dedicated to *that one guy* whose life is just so… sucky. 💀
-
----
+───────────────────────────────────────────────────────────────
+Version 1.0 | PHP + Vanilla JS | No Database Required
+───────────────────────────────────────────────────────────────
