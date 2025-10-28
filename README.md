@@ -551,11 +551,11 @@ Now go forth and create some digital mayhem! 🚀
 │                    sucky.life v2.0                       │
 │         Inside-Joke Website Platform                     │
 │                                                          │
-│  When the universe has it out for you,                  │
-│  document it with style.                                │
+│   When the universe has it out for you,                  │
+│   document it with style.                                │
 │                                                          │
-│  PHP + Vanilla JS + File-Based Storage                  │
-│  No Database • No Frameworks • No Complexity            │
+│   PHP + Vanilla JS + File-Based Storage                  │
+│   No Database • No Frameworks • No Complexity            │
 └──────────────────────────────────────────────────────────┘
 ```
 
