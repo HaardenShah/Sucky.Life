@@ -30,9 +30,9 @@ $eggs = getAllEggs(true, false);
     <link rel="stylesheet" href="/assets/css/main.css">
 </head>
 <body>
-    <div class="hero">
+    <div class="hero" <?php if (!empty($config['hero_image'])): ?>style="background-image: url('<?php echo htmlspecialchars($config['hero_image']); ?>');"<?php endif; ?>>
         <div class="hero-content">
-            <h1 class="hero-title">When the universe has it out for you</h1>
+            <h1 class="hero-title"><?php echo htmlspecialchars($config['hero_text'] ?? 'When the universe has it out for you'); ?></h1>
             <button id="screech-btn" class="screech-button" aria-label="Unleash the screech">
                 Press here to unleash the screech
             </button>

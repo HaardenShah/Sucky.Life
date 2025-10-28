@@ -18,7 +18,6 @@ if (!$egg) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Place Egg: <?php echo htmlspecialchars($egg['title']); ?></title>
     <link rel="stylesheet" href="/assets/css/main.css">
-    <script src="/assets/js/theme-toggle.js"></script>
     <style>
         body {
             margin: 0;
@@ -168,9 +167,9 @@ if (!$egg) {
 </head>
 <body>
     <!-- Show the actual homepage in the background -->
-    <div class="hero">
+    <div class="hero" <?php if (!empty($config['hero_image'])): ?>style="background-image: url('<?php echo htmlspecialchars($config['hero_image']); ?>');"<?php endif; ?>>
         <div class="hero-content">
-            <h1 class="hero-title">When the universe has it out for you</h1>
+            <h1 class="hero-title"><?php echo htmlspecialchars($config['hero_text'] ?? 'When the universe has it out for you'); ?></h1>
         </div>
     </div>
 
