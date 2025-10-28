@@ -12,6 +12,12 @@ ini_set('session.cookie_httponly', 1);
 ini_set('session.use_strict_mode', 1);
 session_start();
 
+// Set security headers
+header("X-Frame-Options: DENY");
+header("X-Content-Type-Options: nosniff");
+header("X-XSS-Protection: 1; mode=block");
+header("Referrer-Policy: strict-origin-when-cross-origin");
+
 // Helper functions
 function getConfig() {
     if (!file_exists(CONFIG_FILE)) {
@@ -24,7 +30,22 @@ function saveConfig($config) {
     if (!is_dir(DATA_PATH)) {
         mkdir(DATA_PATH, 0755, true);
     }
-    return file_put_contents(CONFIG_FILE, json_encode($config, JSON_PRETTY_PRINT));
+    
+    $fp = fopen(CONFIG_FILE, 'c');
+    if (!$fp) {
+        return false;
+    }
+    
+    if (flock($fp, LOCK_EX)) {
+        ftruncate($fp, 0);
+        $result = fwrite($fp, json_encode($config, JSON_PRETTY_PRINT));
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        return $result !== false;
+    }
+    
+    fclose($fp);
+    return false;
 }
 
 function isSetupComplete() {
@@ -40,6 +61,17 @@ function requireAuth() {
         header('Location: /admin/login.php');
         exit;
     }
+    
+    // Check session timeout (30 minutes)
+    $timeout = 1800; // 30 minutes in seconds
+    if (isset($_SESSION['login_time']) && (time() - $_SESSION['login_time'] > $timeout)) {
+        session_destroy();
+        header('Location: /admin/login.php?timeout=1');
+        exit;
+    }
+    
+    // Update last activity time
+    $_SESSION['login_time'] = time();
 }
 
 function generateCSRFToken() {
@@ -94,7 +126,21 @@ function saveEgg($slug, $data) {
     }
     
     $file = EGGS_PATH . '/' . $slug . '.json';
-    return file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
+    $fp = fopen($file, 'c');
+    if (!$fp) {
+        return false;
+    }
+    
+    if (flock($fp, LOCK_EX)) {
+        ftruncate($fp, 0);
+        $result = fwrite($fp, json_encode($data, JSON_PRETTY_PRINT));
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        return $result !== false;
+    }
+    
+    fclose($fp);
+    return false;
 }
 
 function deleteEgg($slug) {
@@ -153,5 +199,21 @@ function sanitizeSlug($text) {
     $text = preg_replace('/[^a-z0-9-]/', '-', $text);
     $text = preg_replace('/-+/', '-', $text);
     $text = trim($text, '-');
-    return $text ?: 'egg-' . time();
+    $slug = $text ?: 'egg-' . time();
+    
+    // Ensure slug is unique by checking existing eggs
+    $counter = 1;
+    $originalSlug = $slug;
+    while (getEgg($slug) !== null) {
+        $slug = $originalSlug . '-' . $counter;
+        $counter++;
+    }
+    
+    return $slug;
+}
+
+function logError($message) {
+    $logFile = DATA_PATH . '/error.log';
+    $timestamp = date('Y-m-d H:i:s');
+    error_log("[$timestamp] $message\n", 3, $logFile);
 }

@@ -203,6 +203,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script>
+        // Store CSRF token for AJAX requests
+        const csrfToken = '<?php echo generateCSRFToken(); ?>';
+        
         // Hero image picker
         function openHeroImagePicker() {
             document.getElementById('hero-image-modal').classList.remove('hidden');
@@ -271,6 +274,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         async function uploadHeroFile(file) {
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('csrf_token', csrfToken);
 
             try {
                 const response = await fetch('/admin/api.php', {

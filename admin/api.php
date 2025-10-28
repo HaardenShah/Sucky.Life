@@ -39,14 +39,18 @@ switch ($action) {
             exit;
         }
         
+        // Validate position values (clamp to 0-100)
+        $posLeft = max(0, min(100, (float)$posLeft));
+        $posTop = max(0, min(100, (float)$posTop));
+        
         $egg = getEgg($slug);
         if (!$egg) {
             echo json_encode(['success' => false, 'error' => 'Egg not found']);
             exit;
         }
         
-        $egg['pos_left'] = (float)$posLeft;
-        $egg['pos_top'] = (float)$posTop;
+        $egg['pos_left'] = $posLeft;
+        $egg['pos_top'] = $posTop;
         
         if (saveEgg($slug, $egg)) {
             echo json_encode(['success' => true]);
@@ -56,6 +60,12 @@ switch ($action) {
         break;
 
     case 'upload_media':
+        // Verify CSRF token from POST parameter
+        if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
+            echo json_encode(['success' => false, 'error' => 'Invalid CSRF token']);
+            exit;
+        }
+        
         // Handle file upload
         if (!isset($_FILES['file'])) {
             echo json_encode(['success' => false, 'error' => 'No file uploaded']);
@@ -67,6 +77,13 @@ switch ($action) {
         
         if ($error !== UPLOAD_ERR_OK) {
             echo json_encode(['success' => false, 'error' => 'Upload failed with error code ' . $error]);
+            exit;
+        }
+        
+        // Check file size (max 10MB)
+        $maxSize = 10 * 1024 * 1024; // 10MB in bytes
+        if ($file['size'] > $maxSize) {
+            echo json_encode(['success' => false, 'error' => 'File too large. Maximum size is 10MB.']);
             exit;
         }
         

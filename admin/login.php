@@ -47,6 +47,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php if ($error): ?>
                     <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
                 <?php endif; ?>
+                
+                <?php if (isset($_GET['timeout'])): ?>
+                    <div class="alert alert-error">Your session has expired. Please login again.</div>
+                <?php endif; ?>
 
                 <div class="form-group">
                     <label for="password">Password</label>

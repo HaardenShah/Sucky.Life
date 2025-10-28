@@ -166,6 +166,7 @@
     async function uploadFile(file) {
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('csrf_token', csrfToken);
 
         try {
             const response = await fetch('/admin/api.php', {

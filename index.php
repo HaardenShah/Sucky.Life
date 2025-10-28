@@ -11,7 +11,6 @@ $config = getConfig();
 
 // Check if site password is enabled
 if (isset($config['site_password_enabled']) && $config['site_password_enabled']) {
-    session_start();
     if (!isset($_SESSION['site_access']) || $_SESSION['site_access'] !== true) {
         header('Location: /gate.php');
         exit;
