@@ -219,8 +219,28 @@ $allAudio = getUploadedMedia('audio');
             <button class="modal-close" onclick="closeMediaPicker()">×</button>
             <div class="modal-content">
                 <h2 id="media-picker-title">Select Media</h2>
-                <div id="media-picker-grid" class="media-picker-grid">
-                    <!-- Populated dynamically -->
+
+                <!-- Tabs -->
+                <div class="media-picker-tabs">
+                    <button class="tab-btn active" onclick="switchMediaTab('uploaded')">Uploaded</button>
+                    <button class="tab-btn" onclick="switchMediaTab('external')">External URL</button>
+                </div>
+
+                <!-- Uploaded Media Tab -->
+                <div id="tab-uploaded" class="tab-content active">
+                    <div id="media-picker-grid" class="media-picker-grid">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- External URL Tab -->
+                <div id="tab-external" class="tab-content hidden">
+                    <div class="external-url-form">
+                        <label for="external-url-input">Enter URL:</label>
+                        <input type="url" id="external-url-input" placeholder="https://www.youtube.com/watch?v=... or https://example.com/image.jpg">
+                        <small>Supported: YouTube, Vimeo, direct image/video/audio links</small>
+                        <button type="button" class="btn" onclick="selectExternalUrl()">Use This URL</button>
+                    </div>
                 </div>
             </div>
         </div>

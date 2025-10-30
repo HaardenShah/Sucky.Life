@@ -202,3 +202,119 @@
         }
     });
 })();
+// Tab switching
+window.switchMediaTab = function(tabName) {
+    // Update tab buttons
+    const tabs = document.querySelectorAll('.tab-btn');
+    tabs.forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    // Update tab content
+    document.getElementById('tab-uploaded').classList.toggle('hidden', tabName !== 'uploaded');
+    document.getElementById('tab-external').classList.toggle('hidden', tabName !== 'external');
+    document.getElementById('tab-uploaded').classList.toggle('active', tabName === 'uploaded');
+    document.getElementById('tab-external').classList.toggle('active', tabName === 'external');
+    
+    // Clear external URL input when switching away
+    if (tabName === 'uploaded') {
+        document.getElementById('external-url-input').value = '';
+    }
+};
+
+// Select external URL
+window.selectExternalUrl = function() {
+    const urlInput = document.getElementById('external-url-input');
+    let url = urlInput.value.trim();
+    
+    if (!url) {
+        alert('Please enter a URL');
+        return;
+    }
+    
+    // Validate URL format
+    try {
+        new URL(url);
+    } catch (e) {
+        alert('Please enter a valid URL starting with http:// or https://');
+        return;
+    }
+    
+    // Convert YouTube URLs to embed format
+    url = convertToEmbedUrl(url);
+    
+    // Determine media type based on currentMediaType
+    const type = currentMediaType;
+    
+    if (type === 'image') {
+        document.getElementById('selected-image').value = url;
+        document.getElementById('selected-image-webp').value = '';
+        
+        document.getElementById('selected-image-preview').innerHTML = `
+            <img src="${escapeHtml(url)}" alt="External image" onerror="this.src='/assets/images/broken-image.png'">
+            <button type="button" class="remove-media" onclick="clearImage()">×</button>
+        `;
+    } else if (type === 'video') {
+        document.getElementById('selected-video').value = url;
+        
+        // Check if it's a YouTube or Vimeo embed
+        if (url.includes('youtube.com/embed/') || url.includes('youtu.be/') || url.includes('vimeo.com/')) {
+            document.getElementById('selected-video-preview').innerHTML = `
+                <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+                    <iframe src="${escapeHtml(url)}" 
+                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen></iframe>
+                </div>
+                <button type="button" class="remove-media" onclick="clearVideo()">×</button>
+            `;
+        } else {
+            document.getElementById('selected-video-preview').innerHTML = `
+                <video src="${escapeHtml(url)}" controls style="width: 100%;"></video>
+                <button type="button" class="remove-media" onclick="clearVideo()">×</button>
+            `;
+        }
+    } else if (type === 'audio') {
+        document.getElementById('selected-audio').value = url;
+        document.getElementById('selected-audio-preview').innerHTML = `
+            <audio src="${escapeHtml(url)}" controls style="width: 100%;"></audio>
+            <button type="button" class="remove-media" onclick="clearAudio()">×</button>
+        `;
+    }
+    
+    closeMediaPicker();
+    urlInput.value = '';
+};
+
+// Convert YouTube/Vimeo URLs to embed format
+function convertToEmbedUrl(url) {
+    // YouTube watch URL to embed
+    if (url.includes('youtube.com/watch')) {
+        const urlObj = new URL(url);
+        const videoId = urlObj.searchParams.get('v');
+        if (videoId) {
+            return `https://www.youtube.com/embed/${videoId}`;
+        }
+    }
+    
+    // YouTube short URL to embed
+    if (url.includes('youtu.be/')) {
+        const videoId = url.split('youtu.be/')[1].split('?')[0];
+        return `https://www.youtube.com/embed/${videoId}`;
+    }
+    
+    // Vimeo URL to embed
+    if (url.includes('vimeo.com/') && !url.includes('/video/')) {
+        const videoId = url.split('vimeo.com/')[1].split('?')[0];
+        return `https://player.vimeo.com/video/${videoId}`;
+    }
+    
+    return url;
+}
+
+// Escape HTML helper for external URLs
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
