@@ -198,18 +198,29 @@
         
         if (egg.image || egg.video) {
             html += '<div class="modal-media">';
-            
+
             if (egg.image) {
                 const imgSrc = egg.image_webp || egg.image;
                 const altText = egg.alt || egg.title || 'Easter egg image';
                 html += `<img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(altText)}" loading="lazy">`;
             } else if (egg.video) {
-                html += `<video controls${egg.video_poster ? ' poster="' + escapeHtml(egg.video_poster) + '"' : ''}>
-                    <source src="${escapeHtml(egg.video)}" type="video/mp4">
-                    Your browser does not support video.
-                </video>`;
+                // Check if it's a YouTube or Vimeo embed
+                if (egg.video.includes('youtube.com/embed/') || egg.video.includes('youtu.be/') || egg.video.includes('vimeo.com/')) {
+                    html += `<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+                        <iframe src="${escapeHtml(egg.video)}"
+                                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen></iframe>
+                    </div>`;
+                } else {
+                    html += `<video controls${egg.video_poster ? ' poster="' + escapeHtml(egg.video_poster) + '"' : ''}>
+                        <source src="${escapeHtml(egg.video)}" type="video/mp4">
+                        Your browser does not support video.
+                    </video>`;
+                }
             }
-            
+
             html += '</div>';
         }
         
@@ -233,16 +244,22 @@
     function closeEggModal() {
         modal.classList.add('hidden');
         modal.setAttribute('aria-hidden', 'true');
-        
+
         // Stop any audio playing in modal
         const modalAudio = modal.querySelector('audio');
         if (modalAudio) {
             modalAudio.pause();
         }
-        
+
         const modalVideo = modal.querySelector('video');
         if (modalVideo) {
             modalVideo.pause();
+        }
+
+        // Stop YouTube/Vimeo embeds by reloading the iframe
+        const modalIframe = modal.querySelector('iframe');
+        if (modalIframe) {
+            modalIframe.src = modalIframe.src;
         }
     }
 
