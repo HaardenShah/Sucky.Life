@@ -1,7 +1,9 @@
 <?php
-// Disable HTML error output
+// Enable error logging but disable display
+error_reporting(E_ALL);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/../data/error.log');
 ini_set('display_errors', 0);
-error_reporting(0);
 
 require_once '../config.php';
 
@@ -12,13 +14,9 @@ if (!isLoggedIn()) {
     exit;
 }
 
-// Check session timeout
-$timeout = 1800;
-if (isset($_SESSION['login_time']) && (time() - $_SESSION['login_time'] > $timeout)) {
-    session_destroy();
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'error' => 'Session expired']);
-    exit;
+// Update session activity time
+if (!isset($_SESSION['login_time'])) {
+    $_SESSION['login_time'] = time();
 }
 $_SESSION['login_time'] = time();
 
@@ -104,10 +102,10 @@ try {
                 exit;
             }
             
-            // Check file size (max 10MB)
-            $maxSize = 10 * 1024 * 1024; // 10MB in bytes
+            // Check file size (max 2MB - matches typical PHP limits)
+            $maxSize = 2 * 1024 * 1024; // 2MB in bytes
             if ($file['size'] > $maxSize) {
-                echo json_encode(['success' => false, 'error' => 'File too large. Maximum size is 10MB.']);
+                echo json_encode(['success' => false, 'error' => 'File too large. Maximum size is 2MB.']);
                 exit;
             }
             

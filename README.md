@@ -166,7 +166,7 @@ ls -la data/              # Check permissions
 | **Input Validation** | File types, sizes, positions |
 | **Output Escaping** | htmlspecialchars() everywhere |
 | **Security Headers** | X-Frame-Options, CSP, etc. |
-| **Upload Limits** | 10MB max file size |
+| **Upload Limits** | 2MB max file size |
 | **Directory Protection** | index.php blocks browsing |
 
 ---
