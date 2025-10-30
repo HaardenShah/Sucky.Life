@@ -37,20 +37,24 @@ try {
     }
 
     // Debug CSRF token (TEMPORARY - REMOVE AFTER TESTING)
-    error_log("=== CSRF DEBUG ===");
-    error_log("Received token: " . ($csrfToken ?? 'NULL'));
-    error_log("Session token: " . ($_SESSION['csrf_token'] ?? 'NULL'));
-    error_log("Session ID: " . session_id());
-    error_log("Action: " . $action);
-    error_log("POST keys: " . implode(', ', array_keys($_POST)));
+    $debug = [
+        'received_token' => $csrfToken ?? 'NULL',
+        'session_token' => $_SESSION['csrf_token'] ?? 'NULL',
+        'tokens_match' => isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $csrfToken ?? ''),
+        'session_id' => session_id(),
+        'action' => $action,
+        'post_keys' => array_keys($_POST)
+    ];
 
     // Verify CSRF token
     if (!verifyCSRFToken($csrfToken)) {
-        error_log("CSRF verification FAILED");
-        echo json_encode(['success' => false, 'error' => 'Invalid CSRF token']);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Invalid CSRF token',
+            'debug' => $debug
+        ]);
         exit;
     }
-    error_log("CSRF verification PASSED");
 
     switch ($action) {
         case 'delete_egg':
