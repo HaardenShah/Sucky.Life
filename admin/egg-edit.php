@@ -227,6 +227,8 @@ $allAudio = getUploadedMedia('audio');
     </div>
 
     <script>
+        // CRITICAL: Define csrfToken for admin-editor.js
+        const csrfToken = '<?php echo generateCSRFToken(); ?>';
         const allImages = <?php echo json_encode($allImages); ?>;
         const allVideos = <?php echo json_encode($allVideos); ?>;
         const allAudio = <?php echo json_encode($allAudio); ?>;

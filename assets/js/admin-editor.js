@@ -174,12 +174,23 @@
                 body: formData
             });
 
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Non-JSON response:', text);
+                alert('Upload failed: Server returned HTML instead of JSON. Check browser console for details.');
+                return;
+            }
+
             const data = await response.json();
 
             if (!data.success) {
                 alert('Upload failed: ' + (data.error || 'Unknown error'));
+                console.error('Upload error details:', data);
             }
         } catch (error) {
+            console.error('Upload error:', error);
             alert('Upload error: ' + error.message);
         }
     }
