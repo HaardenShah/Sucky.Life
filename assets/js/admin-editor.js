@@ -186,11 +186,7 @@
             const data = await response.json();
 
             if (!data.success) {
-                let errorMsg = 'Upload failed: ' + (data.error || 'Unknown error');
-                if (data.debug) {
-                    errorMsg += '\n\nDebug Info:\n' + JSON.stringify(data.debug, null, 2);
-                }
-                alert(errorMsg);
+                alert('Upload failed: ' + (data.error || 'Unknown error'));
                 console.error('Upload error details:', data);
             }
         } catch (error) {

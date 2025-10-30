@@ -36,23 +36,9 @@ try {
         $csrfToken = $input['csrf_token'] ?? '';
     }
 
-    // Debug CSRF token (TEMPORARY - REMOVE AFTER TESTING)
-    $debug = [
-        'received_token' => $csrfToken ?? 'NULL',
-        'session_token' => $_SESSION['csrf_token'] ?? 'NULL',
-        'tokens_match' => isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $csrfToken ?? ''),
-        'session_id' => session_id(),
-        'action' => $action,
-        'post_keys' => array_keys($_POST)
-    ];
-
     // Verify CSRF token
     if (!verifyCSRFToken($csrfToken)) {
-        echo json_encode([
-            'success' => false,
-            'error' => 'Invalid CSRF token',
-            'debug' => $debug
-        ]);
+        echo json_encode(['success' => false, 'error' => 'Invalid CSRF token']);
         exit;
     }
 
