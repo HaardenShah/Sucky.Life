@@ -142,24 +142,40 @@ try {
             if (in_array($ext, ['jpg', 'jpeg', 'png']) && function_exists('imagewebp')) {
                 $webpFilename = pathinfo($filename, PATHINFO_FILENAME) . '.webp';
                 $webpPath = UPLOADS_PATH . '/' . $webpFilename;
-                
-                try {
-                    $image = null;
-                    if ($ext === 'jpg' || $ext === 'jpeg') {
-                        $image = @imagecreatefromjpeg($destination);
-                    } elseif ($ext === 'png') {
-                        $image = @imagecreatefrompng($destination);
-                    }
-                    
-                    if ($image) {
-                        @imagewebp($image, $webpPath, 85);
-                        @imagedestroy($image);
-                    }
-                } catch (Exception $e) {
-                    // WebP conversion failed, but original file is still uploaded
-                    $webpPath = null;
+    
+            try {
+                $image = null;
+                if ($ext === 'jpg' || $ext === 'jpeg') {
+                    $image = @imagecreatefromjpeg($destination);
+            } elseif ($ext === 'png') {
+                $image = @imagecreatefrompng($destination);
+            }
+        
+            if ($image) {
+                @imagewebp($image, $webpPath, 85);
+                @imagedestroy($image);
+            
+                // Delete original image after successful WebP conversion
+                if (file_exists($webpPath)) {
+                    @unlink($destination);
+                    // Update the response to only return WebP
+                    $filename = $webpFilename;
+                    $destination = $webpPath;
                 }
             }
+            } catch (Exception $e) {
+                // WebP conversion failed, but original file is still uploaded
+                $webpPath = null;
+        }
+    }
+
+echo json_encode([
+    'success' => true,
+    'filename' => $filename,
+    'path' => '/data/uploads/' . $filename,
+    'webp_path' => null  // No longer needed since we only keep WebP
+]);
+
             
             echo json_encode([
                 'success' => true,
