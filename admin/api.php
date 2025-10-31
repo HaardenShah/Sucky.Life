@@ -102,10 +102,10 @@ try {
                 exit;
             }
             
-            // Check file size (max 2MB - matches typical PHP limits)
-            $maxSize = 2 * 1024 * 1024; // 2MB in bytes
+            // Check file size (max 10MB - matches typical PHP limits)
+            $maxSize = 10 * 1024 * 1024; // 10MB in bytes
             if ($file['size'] > $maxSize) {
-                echo json_encode(['success' => false, 'error' => 'File too large. Maximum size is 2MB.']);
+                echo json_encode(['success' => false, 'error' => 'File too large. Maximum size is 10MB.']);
                 exit;
             }
             
