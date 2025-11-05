@@ -5,8 +5,8 @@ $config = getConfig();
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['password']) && isset($config['site_password_hash'])) {
-        if (password_verify($_POST['password'], $config['site_password_hash'])) {
+    if (isset($_POST['gate_access']) && isset($config['site_password_hash'])) {
+        if (password_verify($_POST['gate_access'], $config['site_password_hash'])) {
             $_SESSION['site_access'] = true;
             header('Location: /index.php');
             exit;
@@ -88,11 +88,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="gate-container">
         <div class="gate-card">
             <h1 class="gate-title">🔒 Password Required</h1>
-            <form method="POST" class="gate-form">
+            <form method="POST" class="gate-form" autocomplete="off">
                 <?php if ($error): ?>
                     <div class="gate-error"><?php echo htmlspecialchars($error); ?></div>
                 <?php endif; ?>
-                <input type="password" name="password" class="gate-input" placeholder="Enter password" required autofocus autocomplete="off">
+                <input type="password" name="gate_access" class="gate-input" placeholder="Enter password" required autofocus autocomplete="off">
                 <button type="submit" class="gate-button">Enter</button>
             </form>
         </div>
