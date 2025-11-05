@@ -169,14 +169,6 @@ try {
         }
     }
 
-echo json_encode([
-    'success' => true,
-    'filename' => $filename,
-    'path' => '/data/uploads/' . $filename,
-    'webp_path' => null  // No longer needed since we only keep WebP
-]);
-
-            
             echo json_encode([
                 'success' => true,
                 'filename' => $filename,
