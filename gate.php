@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php if ($error): ?>
                     <div class="gate-error"><?php echo htmlspecialchars($error); ?></div>
                 <?php endif; ?>
-                <input type="password" name="password" class="gate-input" placeholder="Enter password" required autofocus>
+                <input type="password" name="password" class="gate-input" placeholder="Enter password" required autofocus autocomplete="off">
                 <button type="submit" class="gate-button">Enter</button>
             </form>
         </div>
