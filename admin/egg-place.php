@@ -10,6 +10,12 @@ if (!$egg) {
     header('Location: /admin/index.php');
     exit;
 }
+
+// Get all other eggs to show their positions
+$allEggs = getAllEggs(true, true); // Include both published and drafts
+$otherEggs = array_filter($allEggs, function($e) use ($slug) {
+    return $e['slug'] !== $slug && isset($e['pos_left']) && isset($e['pos_top']);
+});
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -163,6 +169,59 @@ if (!$egg) {
             font-size: 1.25rem;
             font-weight: 600;
         }
+
+        .existing-egg-marker {
+            position: fixed;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 107, 107, 0.2);
+            border: 2px solid rgba(255, 107, 107, 0.6);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: all;
+            cursor: help;
+            z-index: 100001;
+            box-shadow: 0 0 10px rgba(255, 107, 107, 0.3);
+            transition: all 0.3s;
+        }
+
+        .existing-egg-marker:hover {
+            background: rgba(255, 107, 107, 0.3);
+            border-color: rgba(255, 107, 107, 0.8);
+            box-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
+            z-index: 100003;
+        }
+
+        .existing-egg-marker::after {
+            content: attr(data-title);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+
+        .existing-egg-tooltip {
+            position: absolute;
+            top: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 0.25rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .existing-egg-marker:hover .existing-egg-tooltip {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -180,11 +239,25 @@ if (!$egg) {
             <span class="placement-position" id="position-display">
                 <?php echo round($egg['pos_left'] ?? 50, 1); ?>vw, <?php echo round($egg['pos_top'] ?? 50, 1); ?>vh
             </span>
+            <?php if (count($otherEggs) > 0): ?>
+                <span class="placement-position" style="color: rgba(255, 107, 107, 0.9);">
+                    <?php echo count($otherEggs); ?> other egg<?php echo count($otherEggs) !== 1 ? 's' : ''; ?> (red markers)
+                </span>
+            <?php endif; ?>
             <button class="placement-btn placement-btn-save" id="save-btn">Save</button>
             <button class="placement-btn placement-btn-cancel" onclick="window.location.href='/admin/egg-edit.php?slug=<?php echo urlencode($slug); ?>'">Cancel</button>
         </div>
 
         <div class="placement-marker" id="marker" style="left: <?php echo $egg['pos_left'] ?? 50; ?>vw; top: <?php echo $egg['pos_top'] ?? 50; ?>vh;"></div>
+
+        <!-- Show existing eggs -->
+        <?php foreach ($otherEggs as $otherEgg): ?>
+            <div class="existing-egg-marker"
+                 style="left: <?php echo $otherEgg['pos_left']; ?>vw; top: <?php echo $otherEgg['pos_top']; ?>vh;"
+                 data-title="<?php echo substr(htmlspecialchars($otherEgg['title']), 0, 1); ?>">
+                <div class="existing-egg-tooltip"><?php echo htmlspecialchars($otherEgg['title']); ?></div>
+            </div>
+        <?php endforeach; ?>
     </div>
 
     <div class="save-success" id="save-success">
@@ -205,8 +278,8 @@ if (!$egg) {
 
         // Click to place
         document.body.addEventListener('click', (e) => {
-            // Ignore clicks on controls
-            if (e.target.closest('.placement-controls')) {
+            // Ignore clicks on controls and existing egg markers
+            if (e.target.closest('.placement-controls') || e.target.closest('.existing-egg-marker')) {
                 return;
             }
 
